@@ -12,7 +12,7 @@ CORS(app)
 
 # 🔑 API KEY OPENAI
 cliente = OpenAI(
-    api_key=("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")
+    api_key=os.getenv("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")
 )
 account_sid = os.getenv("AC05e4e8d4cdca2fd34a1d688b6fb09f8f")
 auth_token = os.getenv("c9e703d17d240d6f4b80059dddfca9f8")
