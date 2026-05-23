@@ -1,7 +1,7 @@
-from flask import Flask, request, jsonify
+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
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from openai import OpenAI
-from flask import Flask, request, send_from_directory
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
 import csv
@@ -11,11 +11,13 @@ import os
 app = Flask(__name__)
 CORS(app)
 
+# =========================
+# PAGINAS
+# =========================
+
 @app.route("/")
-def home():
-    return send_from_directory(".", "index.html")
 @app.route("/index.html")
-def index():
+def home():
     return send_from_directory(".", "index.html")
 
 @app.route("/detalle-villa-aurelia.html")
@@ -34,34 +36,41 @@ def ykua_sati():
 def hassler():
     return send_from_directory(".", "detalle-ventura-hassler.html")
 
+# =========================
+# ARCHIVOS
+# =========================
+
 @app.route('/assets/<path:filename>')
 def assets_files(filename):
     return send_from_directory('assets', filename)
 
 @app.route('/imagenes/<path:filename>')
 def imagenes_files(filename):
-
     return send_from_directory('imagenes', filename)
-@app.route('/chat', methods=['POST'])
-def chat():
-    data = request.get_json()
 
-    mensaje = data.get("message", "")
+# =========================
+# OPENAI
+# =========================
 
-    return jsonify({
-        "reply": f"Recibí tu mensaje: {mensaje}"
-    })
-
-# 🔑 API KEY OPENAI
 cliente = OpenAI(
-    api_key=os.getenv("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")
+    api_key="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"
 )
-account_sid = os.getenv("AC05e4e8d4cdca2fd34a1d688b6fb09f8f")
-auth_token = os.getenv("c9e703d17d240d6f4b80059dddfca9f8")
+
+# =========================
+# TWILIO
+# =========================
+
+account_sid = "TU_ACCOUNT_SID"
+auth_token = "TU_AUTH_TOKEN"
 
 twilio_client = Client(account_sid, auth_token)
-# 📁 GUARDAR CLIENTES
+
+# =========================
+# GUARDAR CLIENTES
+# =========================
+
 def guardar_en_excel(numero_cliente, mensaje, respuesta, estado):
+
     with open(
         'clientes.csv',
         mode='a',
@@ -79,8 +88,12 @@ def guardar_en_excel(numero_cliente, mensaje, respuesta, estado):
             estado
         ])
 
-# 📁 CLIENTES CALIENTES
+# =========================
+# CLIENTES CALIENTES
+# =========================
+
 def guardar_cliente_caliente(numero_cliente, mensaje, respuesta):
+
     with open(
         'clientes_calientes.csv',
         mode='a',
@@ -98,9 +111,46 @@ def guardar_cliente_caliente(numero_cliente, mensaje, respuesta):
             "CALIENTE 🔥"
         ])
 
-# 🚀 CHAT IA
+# =========================
+# IA WEB
+# =========================
+
+@app.route('/chat', methods=['POST'])
+def chat_web():
+
+    data = request.get_json()
+
+    mensaje = data.get("message", "")
+
+    respuesta_ia = cliente.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": """
+                Sos un asesor inmobiliario profesional de Paraguay.
+                Respondé natural, corto y amable.
+                """
+            },
+            {
+                "role": "user",
+                "content": mensaje
+            }
+        ]
+    )
+
+    respuesta = respuesta_ia.choices[0].message.content
+
+    return jsonify({
+        "reply": respuesta
+    })
+
+# =========================
+# WHATSAPP IA
+# =========================
+
 @app.route('/mensaje', methods=['POST'])
-def chat():
+def whatsapp_bot():
 
     mensaje = request.form.get('Body')
     numero_cliente = request.form.get('From')
@@ -128,103 +178,41 @@ def chat():
 
     3) Ventura Hassler
     - Desde 137.173 USD
-    - 7 pisos
-    - 56 departamentos
-    - 62 cocheras
-    - Piscina
-    - Gimnasio
-    - Financiación
 
     4) Edificio Ventura Ykua Sati
     - Desde 100.000 USD
-    - 2 torres
-    - 1, 2 y 3 dormitorios
-    - 1028 m² patio interno
-    - Financiación propia
-    - Entrega 2027 y 2028
 
     """
 
     respuesta_ia = cliente.chat.completions.create(
         model="gpt-4o-mini",
-
         messages=[
-
             {
                 "role": "system",
                 "content": f"""
-                Sos un asesor inmobiliario profesional de Paraguay.
+                Sos un asesor inmobiliario profesional.
 
-                Respondé como humano, natural y amable.
-
-                Tu objetivo es:
-                - ayudar al cliente
-                - detectar interés
-                - recomendar propiedades
-                - llevar al cliente a una visita
-
-                Siempre preguntá:
-                - presupuesto
-                - zona
-                - tipo de propiedad
-
-                Detectá automáticamente clientes interesados.
-
-                Catálogo actual:
+                Catálogo:
                 {propiedades}
                 """
             },
-
             {
                 "role": "user",
                 "content": mensaje
             }
-
         ]
     )
 
     respuesta = respuesta_ia.choices[0].message.content
 
-    # 📸 MENSAJES AUTOMÁTICOS
-
-    if "villa aurelia" in mensaje.lower():
-
-        twilio_client.messages.create(
-            from_='whatsapp:+14155238886',
-            to=numero_cliente,
-            body='📸 Te puedo mostrar más fotos y detalles del Dúplex en Villa Aurelia. Tiene patio, quincho y acepta crédito bancario 😎'
-        )
-
-    if "bernardino" in mensaje.lower():
-
-        twilio_client.messages.create(
-            from_='whatsapp:+14155238886',
-            to=numero_cliente,
-            body='🏢 El Edificio Bernardino tiene piscina, gimnasio, quinchos y portería 24h 🔥'
-        )
-
-    if "ventura" in mensaje.lower():
-
-        twilio_client.messages.create(
-            from_='whatsapp:+14155238886',
-            to=numero_cliente,
-            body='✨ Ventura Ykua Sati tiene financiación y departamentos desde 100.000 USD.'
-        )
-
-    # 🔥 CLIENTE CALIENTE
-
     palabras_calientes = [
         "precio",
-        "presupuesto",
-        "quiero",
         "comprar",
         "visita",
         "agendar",
         "usd",
-        "dolares",
-        "departamento",
         "casa",
-        "zona"
+        "departamento"
     ]
 
     cliente_caliente = any(
@@ -236,26 +224,15 @@ def chat():
 
         estado = "CALIENTE 🔥"
 
-        respuesta += """
-
-🔥 Tengo opciones que te pueden encajar muy bien.
-
-Si querés podemos coordinar una visita o seguir por WhatsApp 👇
-"""
-
         guardar_cliente_caliente(
             numero_cliente,
             mensaje,
             respuesta
         )
 
-        print("🔥 CLIENTE CALIENTE:", mensaje)
-
     else:
 
         estado = "FRIO"
-
-    # 💾 GUARDAR
 
     guardar_en_excel(
         numero_cliente,
@@ -264,16 +241,19 @@ Si querés podemos coordinar una visita o seguir por WhatsApp 👇
         estado
     )
 
-    # 📲 RESPUESTA WHATSAPP
-
     resp = MessagingResponse()
     resp.message(respuesta)
 
     return str(resp)
+
+# =========================
+# START
+# =========================
+
 if __name__ == '__main__':
 
     app.run(
         host="0.0.0.0",
         port=5000,
         debug=True
-    )  
+    )
