@@ -14,6 +14,10 @@ CORS(app)
 @app.route("/")
 def home():
     return send_from_directory(".", "index.html")
+@app.route("/index.html")
+def index():
+    return send_from_directory(".", "index.html")
+
 @app.route("/detalle-villa-aurelia.html")
 def villa_aurelia():
     return send_from_directory(".", "detalle-villa-aurelia.html")
