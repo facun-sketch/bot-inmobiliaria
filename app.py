@@ -11,7 +11,7 @@ import os
 app = Flask(__name__)
 CORS(app)
 
-app.route("/")
+@app.route("/")
 def home():
     return send_from_directory(".", "index.html")
 
