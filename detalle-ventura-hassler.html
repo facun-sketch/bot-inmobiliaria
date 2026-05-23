@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Ventura Hassler</title>
+
+<style>
+
+body{
+margin:0;
+font-family:Arial;
+background:#f4f4f1;
+color:#111;
+}
+
+.hero{
+height:80vh;
+background:url('assets/ventura-hassler/foto1.jpg') center/cover;
+display:flex;
+align-items:end;
+padding:60px;
+color:white;
+position:relative;
+}
+
+.hero::before{
+content:"";
+position:absolute;
+inset:0;
+background:linear-gradient(to top, rgba(0,0,0,.7), transparent);
+}
+
+.hero-content{
+position:relative;
+z-index:2;
+max-width:700px;
+}
+
+.hero h1{
+font-size:60px;
+margin:0;
+}
+
+.hero p{
+font-size:18px;
+}
+
+.content{
+padding:60px 8%;
+}
+
+.card{
+background:white;
+padding:40px;
+border-radius:24px;
+box-shadow:0 10px 30px rgba(0,0,0,.08);
+margin-bottom:40px;
+}
+
+.features{
+display:flex;
+flex-wrap:wrap;
+gap:12px;
+margin-top:20px;
+}
+
+.features span{
+padding:10px 18px;
+border-radius:999px;
+background:#f1f1f1;
+font-size:14px;
+}
+
+.gallery{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+gap:20px;
+}
+
+.gallery img{
+width:100%;
+height:220px;
+object-fit:cover;
+border-radius:18px;
+cursor:pointer;
+transition:.3s;
+}
+
+.gallery img:hover{
+transform:scale(1.03);
+}
+
+.btn{
+display:inline-block;
+padding:14px 28px;
+border-radius:999px;
+background:#111;
+color:white;
+text-decoration:none;
+margin-top:25px;
+}
+
+</style>
+</head>
+
+<body>
+
+<section class="hero">
+
+<div class="hero-content">
+
+<h1>Ventura Hassler</h1>
+
+<p>
+7 pisos · 56 departamentos · 62 cocheras
+</p>
+
+<h2>Desde 137.173 USD</h2>
+
+</div>
+
+</section>
+
+<div class="content">
+
+<div class="card">
+
+<h2>Descripción</h2>
+
+<p>
+Ubicado sobre la calle R.I. 6 Boquerón esquina Hassler.
+Proyecto moderno con excelente ubicación,
+amenities premium y financiación disponible.
+</p>
+
+<div class="features">
+
+<span>2 dormitorios</span>
+<span>3 dormitorios</span>
+<span>Piscina</span>
+<span>Gimnasio</span>
+<span>Quincho</span>
+<span>62 cocheras</span>
+
+</div>
+
+<h3>Unidades disponibles</h3>
+
+<ul>
+<li>2 dormitorios de 78m² desde 137.173 USD</li>
+<li>2 dormitorios de 87,5m² desde 148.225 USD</li>
+<li>3 dormitorios de 135m² desde 232.850 USD</li>
+</ul>
+
+<h3>Amenities</h3>
+
+<ul>
+<li>Salón Gourmet climatizado</li>
+<li>Piscina</li>
+<li>Quincho al aire libre</li>
+<li>Gimnasio</li>
+</ul>
+
+<h3>Cocheras</h3>
+
+<ul>
+<li>Semi cubiertas: 13.000 USD</li>
+<li>Techadas: 15.000 USD</li>
+<li>Cochera + Baulera: 17.000 USD</li>
+</ul>
+
+<h3>Entrega</h3>
+
+<p>
+Agosto 2026
+</p>
+
+<p>
+Consulta nuestros planes de financiación.
+Convenio con entidades bancarias.
+</p>
+
+<a class="btn"
+href="https://maps.app.goo.gl/rXwp2GAPR3RiQB8C7?g_st=ipc"
+target="_blank">
+Ver ubicación
+</a>
+
+</div>
+
+<h2>Galería</h2>
+
+<div class="gallery">
+
+<img src="assets/ventura-hassler/foto1.jpg">
+<img src="assets/ventura-hassler/foto2.jpg">
+<img src="assets/ventura-hassler/foto3.jpg">
+<img src="assets/ventura-hassler/foto4.jpg">
+<img src="assets/ventura-hassler/foto5.jpg">
+<img src="assets/ventura-hassler/foto6.jpg">
+<img src="assets/ventura-hassler/foto7.jpg">
+<img src="assets/ventura-hassler/foto8.jpg">
+<img src="assets/ventura-hassler/foto9.jpg">
+<img src="assets/ventura-hassler/foto10.jpg">
+<img src="assets/ventura-hassler/foto11.jpg">
+
+</div>
+
+</div>
+
+</body>
+</html>

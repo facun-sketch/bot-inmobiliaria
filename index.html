@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Silvia Espinola | Keller Williams Paraguay</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Inter,Arial,sans-serif;background:#f4f4f1;color:#111;line-height:1.5}
+    a{text-decoration:none;color:inherit}
+    header{position:fixed;top:0;left:0;width:100%;z-index:50;padding:20px 7%;display:flex;justify-content:space-between;align-items:center;background:rgba(244,244,241,.78);backdrop-filter:blur(14px);border-bottom:1px solid rgba(0,0,0,.08)}
+    .brand{font-family:Georgia,serif;font-size:22px;letter-spacing:.5px}.brand span{display:block;font-family:Inter,Arial,sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:2px;color:#555;margin-top:2px}
+    nav{display:flex;gap:22px;font-size:14px;color:#333}.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:13px 22px;font-weight:600;transition:.25s;border:1px solid #111}.btn-dark{background:#111;color:white}.btn-light{background:white;color:#111}.btn:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,0,0,.12)}
+    .hero{min-height:100vh;display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:50px;padding:120px 7% 70px;background:linear-gradient(120deg,#f8f8f5,#e8e8e2)}
+    .hero h1{font-family:Georgia,serif;font-size:clamp(42px,6vw,84px);line-height:.95;font-weight:400;margin-bottom:22px}.hero p{font-size:18px;color:#444;max-width:560px;margin-bottom:32px}.hero-actions{display:flex;gap:14px;flex-wrap:wrap}.hero-card{position:relative;border-radius:34px;overflow:hidden;min-height:620px;box-shadow:0 35px 80px rgba(0,0,0,.22);background:#ddd}.hero-card img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}.hero-card:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.6),transparent 55%)}.hero-info{position:absolute;bottom:28px;left:28px;right:28px;color:white;z-index:2}.hero-info h2{font-family:Georgia,serif;font-size:36px;font-weight:400}.price{font-size:26px;font-weight:800;margin-top:10px}.tag{display:inline-block;background:rgba(255,255,255,.18);backdrop-filter:blur(8px);padding:8px 14px;border-radius:999px;font-size:13px;margin-bottom:12px}
+    section{padding:90px 7%}.section-title{font-family:Georgia,serif;font-size:clamp(34px,4vw,56px);font-weight:400;margin-bottom:14px}.section-sub{color:#555;max-width:680px;margin-bottom:36px}.property-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}.property-card{background:#fff;border-radius:28px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.08);transition:.25s}.property-card:hover{transform:translateY(-6px)}.property-card img{width:100%;height:310px;object-fit:cover}.property-body{padding:24px}.property-body h3{font-family:Georgia,serif;font-size:28px;font-weight:400;margin-bottom:8px}.meta{color:#666;font-size:14px;margin-bottom:15px}.features{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}.features span{font-size:12px;border:1px solid #ddd;border-radius:999px;padding:7px 10px;background:#fafafa;color:#111;font-weight:600}.detail{display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:start;background:#111;color:#fff}.detail .section-sub{color:#cfcfcf}.gallery{display:grid;grid-template-columns:1fr 1fr;gap:12px}.gallery img{width:100%;height:240px;object-fit:cover;border-radius:20px;cursor:pointer}.description{background:#1b1b1b;border:1px solid rgba(255,255,255,.08);border-radius:28px;padding:30px}.description ul{padding-left:20px;margin:14px 0}.description li{margin-bottom:8px;color:#e8e8e8}.big-price{font-size:34px;font-weight:900;margin:18px 0}.contact-box{background:#fff;color:#111;border-radius:32px;padding:36px;display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center}.contact-box h2{font-family:Georgia,serif;font-size:40px;font-weight:400}.floating-chat{position:fixed;right:24px;bottom:24px;width:64px;height:64px;border-radius:50%;background:#111;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 16px 40px rgba(0,0,0,.3);z-index:100}.ai-panel{position:fixed;right:24px;bottom:100px;width:min(380px,calc(100vw - 40px));background:#fff;border-radius:26px;box-shadow:0 30px 90px rgba(0,0,0,.28);overflow:hidden;display:none;z-index:101}.ai-head{background:#111;color:white;padding:18px 20px;font-weight:700}.ai-body{padding:18px;color:#333}.quick{display:grid;gap:10px;margin-top:14px}.quick button{border:1px solid #ddd;background:#f7f7f5;border-radius:16px;padding:12px;text-align:left;cursor:pointer}.chat-input{display:flex;border-top:1px solid #eee}.chat-input input{flex:1;border:none;padding:16px;outline:none}.chat-input button{border:none;background:#111;color:#fff;padding:0 18px;cursor:pointer}.modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}.modal img{max-width:92vw;max-height:88vh;border-radius:18px}.close{position:absolute;top:20px;right:28px;color:white;font-size:34px;cursor:pointer}
+    footer{padding:45px 7%;background:#0b0b0b;color:#bbb;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.small{font-size:13px;color:#777}
+    @media(max-width:900px){header{padding:16px 5%}nav{display:none}.hero{grid-template-columns:1fr;padding:105px 5% 50px}.hero-card{min-height:520px}.property-grid,.detail{grid-template-columns:1fr}section{padding:65px 5%}.contact-box{grid-template-columns:1fr}.gallery img{height:190px}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand" style="display:flex;align-items:center;gap:14px;">
+  <img src="assets/silvia.jpg"
+       style="width:58px;height:58px;border-radius:50%;object-fit:cover;border:2px solid #ddd;">
+       
+  <div>
+    <div style="font-family:Georgia,serif;font-size:22px;">
+      Silvia Espínola
+    </div>
+
+    <span style="display:block;
+                 font-family:Inter,Arial,sans-serif;
+                 font-size:11px;
+                 text-transform:uppercase;
+                 letter-spacing:2px;
+                 color:#666;
+                 margin-top:2px;">
+      Asesora inmobiliaria asociada a Keller Williams Paraguay
+    </span>
+  </div>
+</div>
+    <a class="btn btn-dark" href="https://wa.me/595981466040" target="_blank">WhatsApp</a>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <div class="tag">Villa Aurelia · Asunción</div>
+        <h1>Propiedades modernas para vivir, invertir y crecer.</h1>
+        <p>Atención personalizada, propiedades seleccionadas y asistencia inteligente para ayudarte a encontrar la mejor opción inmobiliaria.</p>
+        <div class="hero-actions">
+          <a class="btn btn-dark" href="#detalle">Ver propiedad</a>
+          <a class="btn btn-light" href="https://wa.me/595981466040?text=Hola,%20quiero%20agendar%20una%20visita%20al%20duplex%20en%20Villa%20Aurelia" target="_blank">Agendar visita</a>
+          <a class="btn" href="https://wa.me/595981466040?text=Hola,%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20esta%20propiedad" target="_blank">Hablar por WhatsApp</a>
+        </div>
+      </div>
+      <div class="hero-card">
+        <img src="assets/villa-aurelia/portada.jpg" alt="Duplex en Villa Aurelia" />
+        <div class="hero-info">
+          <span class="tag">Propiedad destacada</span>
+          <h2>Dúplex en Villa Aurelia</h2>
+          <div class="price">Gs. 1.397.000.000</div>
+        </div>
+      </div>
+<div class="property-card">
+  <div class="property-image">
+    <video autoplay muted loop playsinline>
+      <source src="assets/Edificio Bernardino/video-portada.mp4" type="video/mp4">
+    </video>
+  </div>
+
+  <div class="property-body">
+    <span class="tag">Selección exclusiva</span>
+
+    <h3>Edificio Bernardino</h3>
+
+    <div class="price">Gs. 1.680.000.000</div>
+
+    <div class="features">
+      <span>3 dormitorios</span>
+      <span>2 baños</span>
+      <span>Estacionamiento</span>
+      <span>Quincho</span>
+      <span>Patio</span>
+      <span>Crédito bancario</span>
+    </div>
+
+    <a href="#edificio-bernardino" class="btn-dark">
+    </a>
+  </div>
+</div>
+    </section>
+
+    <section id="propiedades">
+      <h2 class="section-title">Propiedades destacadas</h2>
+      <p class="section-sub">Una selección inicial para presentar la experiencia web. Luego se podrán cargar más inmuebles, categorías, filtros y propiedades reales de la inmobiliaria.</p>
+      <div class="property-grid">
+        <article class="property-card">
+          <img src="assets/villa-aurelia/portada.jpg" alt="Dúplex Villa Aurelia" />
+          <div class="property-body">
+            <h3>Dúplex en Villa Aurelia</h3>
+            <p class="meta">Villa Aurelia, Asunción · Venta</p>
+            <strong>Gs. 1.397.000.000</strong>
+            <div class="features"><span>180 m²</span><span>3 dormitorios</span><span>Quincho</span><span>Apto crédito</span></div>
+            <a class="btn btn-dark" href="detalle-villa-aurelia.html">Ver más</a>
+          </div>
+        </article>
+        <article class="property-card">
+          <img src="assets/Edificio Bernardino/portada.jpg.jpeg" alt="Edificio Bernardino" />
+          <div class="property-body">
+            <h3>Edificio Bernardino</h3>
+            <p class="meta">Bernardino · Venta</p>
+            <strong>Gs. 1.680.000.000</strong>
+            <div class="features">
+            <span>118 m²</span>
+            <span>2 dormitorios</span>
+            <span>1 suite</span>
+            <span>Balcón con parrilla</span>
+            <span>2 cocheras</span>
+            <span>Piscina</span>
+            <span>Gimnasio</span>
+            <span>Quinchos</span>
+            <span>Playground</span>
+            <span>Portería 24h</span>
+            </div>
+            <a class="btn btn-light" href="detalle-bernardino.html">Ver más</a>
+          </div>
+        </article>
+        <article class="property-card">
+
+<img src="assets/ventura-hassler/foto1.jpg" alt="Ventura Hassler" />
+
+<div class="property-body">
+
+<p class="meta">Selección exclusiva</p>
+
+<h3>Ventura Hassler</h3>
+
+<p class="meta">
+R.I. 6 Boquerón esq. Hassler · Venta
+</p>
+
+<strong>Desde 137.173 USD</strong>
+
+<div class="features">
+<span>7 pisos</span>
+<span>56 departamentos</span>
+<span>62 cocheras</span>
+<span>Piscina</span>
+<span>Gimnasio</span>
+<span>Quincho</span>
+<span>Financiación</span>
+</div>
+
+<a class="btn btn-light"
+href="detalle-ventura-hassler.html">
+Ver más
+</a>
+</div>
+</article>
+ <article class="property-card">
+  <video autoplay muted loop controls>
+    <source src="assets/edificio-ventura-ykua-sati/video1.mp4" type="video/mp4">
+  </video>
+
+  <div class="property-body">
+    <p class="meta">Selección exclusiva</p>
+
+    <h3>Edificio Ventura Ykua Sati</h3>
+
+    <p class="meta">
+      Ykua Sati · Venta
+    </p>
+
+    <strong>Desde USD 100.000</strong>
+
+    <div class="features">
+      <span>2 torres</span>
+      <span>1028 m² patio</span>
+      <span>1, 2 y 3 dormitorios</span>
+      <span>Financiación</span>
+      <span>Cocheras</span>
+      <span>Entrega 2027</span>
+    </div>
+
+    <a class="btn btn-light" href="detalle-edificio-ventura-ykua-sati.html">
+      Ver más
+    </a>
+  </div>
+</article>
+    <section id="detalle" class="detail">
+      <div>
+        <h2 class="section-title">Dúplex en Venta en Villa Aurelia</h2>
+        <p class="section-sub">Hermoso y amplio dúplex en el corazón del barrio Villa Aurelia de Asunción.</p>
+        <div class="big-price">Gs. 1.397.000.000</div>
+        <div class="features"><span>180 m² terreno</span><span>6x30</span><span>2 vehículos</span><span>3 dormitorios</span><span>Quincho</span><span>Crédito bancario</span></div>
+        <div class="description">
+          <h3>Características</h3>
+          <ul>
+            <li>Estacionamiento para 2 vehículos.</li>
+            <li>Baño social, sala comedor y cocina amoblada.</li>
+            <li>Quincho con parrilla y patio.</li>
+            <li>Área de servicio completa con lavadero, sanitario, habitación y tendedero independiente.</li>
+            <li>Planta alta con sala de estar, 1 dormitorio en suite, 2 habitaciones secundarias y amplio baño familiar.</li>
+            <li>Apto para crédito bancario.</li>
+          </ul>
+          <a class="btn btn-light" href="https://maps.app.goo.gl/5CUz7i4aNceK31D58?g_st=ic" target="_blank">Ver ubicación</a>
+          <a class="btn btn-dark" href="https://wa.me/595981466040?text=Hola,%20quiero%20agendar%20una%20visita%20al%20duplex%20en%20Villa%20Aurelia" target="_blank">Agendar visita</a>
+        </div>
+      </div>
+      <div class="gallery">
+        <img src="assets/villa-aurelia/portada.jpg" onclick="openModal(this.src)" alt="Frente" />
+        <img src="assets/villa-aurelia/foto2.jpg" onclick="openModal(this.src)" alt="Estacionamiento" />
+        <img src="assets/villa-aurelia/foto3.jpg" onclick="openModal(this.src)" alt="Sala" />
+        <img src="assets/villa-aurelia/foto4.jpg" onclick="openModal(this.src)" alt="Cocina" />
+        <img src="assets/villa-aurelia/foto5.jpg" onclick="openModal(this.src)" alt="Dormitorio" />
+        <img src="assets/villa-aurelia/foto6.jpg" onclick="openModal(this.src)" alt="Baño" />
+      </div>
+    </section>
+
+    <section id="contacto">
+      <div class="contact-box">
+        <div>
+          <h2>¿Querés conocer esta propiedad?</h2>
+          <p class="section-sub">Podés agendar una visita, pedir más información o consultar por opciones similares. Un asesor puede continuar la conversación cuando el cliente ya esté listo para avanzar.</p>
+        </div>
+        <a class="btn btn-dark" href="https://wa.me/595981466040?text=Hola,%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20las%20propiedades" target="_blank">Hablar por WhatsApp</a>
+      </div>
+    </section>
+  </main>
+
+  <button class="floating-chat" onclick="toggleAI()">💬</button>
+  <div class="ai-panel" id="aiPanel">
+    <div class="ai-head">Asistente inmobiliario IA</div>
+    <div class="ai-body">
+      <p><strong>Hola 👋</strong> Puedo ayudarte a encontrar propiedades, responder dudas y agendar una visita.</p>
+      <div class="quick">
+        <button onclick="quickAsk('¿Tiene patio?')">¿Tiene patio?</button>
+        <button onclick="quickAsk('¿Acepta crédito bancario?')">¿Acepta crédito bancario?</button>
+        <button onclick="quickAsk('Quiero agendar una visita')">Quiero agendar una visita</button>
+      </div>
+      <p id="aiReply" style="margin-top:14px;color:#111;font-weight:600"></p>
+    </div>
+    <div class="chat-input"><input id="aiInput" placeholder="Escribí tu consulta..." /><button onclick="sendAI()">Enviar</button></div>
+  </div>
+
+  <div class="modal" id="modal" onclick="closeModal()"><span class="close">×</span><img id="modalImg" src="" alt="Vista ampliada"></div>
+
+  <footer>
+    <div>Keller Williams Paraguay · Silvia Espinola</div>
+    <div class="small">Web demo con IA inmobiliaria, WhatsApp y captación de clientes.</div>
+  </footer>
+
+  <script>
+    function toggleAI(){const p=document.getElementById('aiPanel');p.style.display=p.style.display==='block'?'none':'block'}
+    function quickAsk(q){document.getElementById('aiInput').value=q;sendAI()}
+    async function sendAI() {
+
+    const input = document.getElementById('aiInput');
+    const mensaje = input.value;
+
+    if(!mensaje) return;
+
+    document.getElementById('aiReply').innerText = "Escribiendo...";
+
+    try {
+
+        const response = await fetch('http://localhost:5000/chat', {
+
+            method: 'POST',
+
+            headers: {
+                'Content-Type': 'application/json'
+            },
+
+            body: JSON.stringify({
+                mensaje: mensaje
+            })
+
+        });
+
+        const data = await response.json();
+
+        document.getElementById('aiReply').innerText = data.respuesta;
+
+    } catch(error) {
+
+        document.getElementById('aiReply').innerText =
+        "Error conectando con el asistente IA.";
+
+        console.log(error);
+    }
+}
+    function openModal(src){document.getElementById('modalImg').src=src;document.getElementById('modal').style.display='flex'}
+    function closeModal(){document.getElementById('modal').style.display='none'}
+  </script>
+</body>
+</html>

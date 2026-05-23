@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Dúplex Villa Aurelia</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+}
+
+body{
+font-family:Arial,sans-serif;
+background:#f5f5f3;
+color:#111;
+line-height:1.5;
+}
+
+header{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+padding:20px 7%;
+background:rgba(255,255,255,.85);
+backdrop-filter:blur(12px);
+display:flex;
+justify-content:space-between;
+align-items:center;
+z-index:100;
+border-bottom:1px solid #ddd;
+}
+
+header a{
+text-decoration:none;
+color:#111;
+font-weight:bold;
+}
+
+.hero{
+height:85vh;
+position:relative;
+overflow:hidden;
+display:flex;
+align-items:end;
+padding:60px;
+color:white;
+background:url('assets/villa-aurelia/portada.jpg') center/cover;
+}
+
+.overlay{
+position:absolute;
+inset:0;
+background:linear-gradient(to top,rgba(0,0,0,.75),transparent 50%);
+}
+
+.hero-content{
+position:relative;
+z-index:2;
+max-width:700px;
+}
+
+.hero-content h1{
+font-size:72px;
+margin-bottom:10px;
+}
+
+.price{
+font-size:42px;
+font-weight:bold;
+margin-top:18px;
+}
+
+.content{
+padding:80px 7%;
+}
+
+.description{
+background:white;
+padding:40px;
+border-radius:30px;
+box-shadow:0 20px 50px rgba(0,0,0,.08);
+margin-bottom:40px;
+}
+
+.features{
+display:flex;
+flex-wrap:wrap;
+gap:12px;
+margin:25px 0;
+}
+
+.features span{
+background:#f4f4f4;
+border:1px solid #ddd;
+padding:10px 16px;
+border-radius:999px;
+font-size:14px;
+font-weight:600;
+}
+
+.gallery{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+gap:18px;
+margin-top:40px;
+}
+
+.gallery img{
+width:100%;
+height:260px;
+object-fit:cover;
+border-radius:24px;
+transition:.3s;
+cursor:pointer;
+}
+
+.gallery img:hover{
+transform:scale(1.03);
+}
+
+.map{
+margin-top:40px;
+}
+
+.map a{
+display:inline-flex;
+padding:14px 22px;
+background:#111;
+color:white;
+border-radius:999px;
+text-decoration:none;
+font-weight:bold;
+}
+
+.whatsapp{
+position:fixed;
+right:20px;
+bottom:20px;
+background:#111;
+color:white;
+padding:18px 24px;
+border-radius:999px;
+text-decoration:none;
+font-weight:bold;
+z-index:100;
+box-shadow:0 10px 30px rgba(0,0,0,.2);
+}
+
+@media(max-width:900px){
+
+.hero{
+height:75vh;
+padding:35px;
+}
+
+.hero-content h1{
+font-size:42px;
+}
+
+.price{
+font-size:30px;
+}
+
+.content{
+padding:50px 5%;
+}
+
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+
+<a href="index.html">
+← Volver
+</a>
+
+<a href="https://wa.me/595981466040" target="_blank">
+WhatsApp
+</a>
+
+</header>
+
+<section class="hero">
+
+<div class="overlay"></div>
+
+<div class="hero-content">
+
+<h1>Dúplex en Villa Aurelia</h1>
+
+<p>
+Hermoso y amplio dúplex en Villa Aurelia.
+Ideal para familias que buscan comodidad,
+ubicación estratégica y espacios modernos.
+</p>
+
+<div class="price">
+Gs. 1.397.000.000
+</div>
+
+</div>
+
+</section>
+
+<section class="content">
+
+<div class="description">
+
+<h2>Descripción</h2>
+
+<p>
+Dúplex moderno con excelente distribución,
+quincho independiente y amplios ambientes.
+Ubicado en una zona estratégica de Asunción.
+</p>
+
+<div class="features">
+
+<span>180 m²</span>
+<span>3 dormitorios</span>
+<span>1 en suite</span>
+<span>2 baños</span>
+<span>2 vehículos</span>
+<span>Quincho</span>
+<span>Patio</span>
+<span>Apto crédito</span>
+
+</div>
+
+<h2>Planta Baja</h2>
+
+<ul style="margin-top:20px;padding-left:20px;">
+
+<li>Estacionamiento para 2 vehículos</li>
+<li>Sala social</li>
+<li>Baño social</li>
+<li>Cocina amoblada</li>
+<li>Quincho con parrilla</li>
+<li>Área de servicio completa</li>
+<li>Lavadero independiente</li>
+<li>Patio privado</li>
+
+</ul>
+
+<h2 style="margin-top:30px;">Planta Alta</h2>
+
+<ul style="margin-top:20px;padding-left:20px;">
+
+<li>1 dormitorio en suite</li>
+<li>2 habitaciones secundarias</li>
+<li>Baño familiar</li>
+
+</ul>
+
+<div class="map">
+
+<a href="https://www.google.com/maps" target="_blank">
+
+Ver ubicación
+
+</a>
+
+</div>
+
+</div>
+
+<h2>Galería</h2>
+
+<div class="gallery">
+
+<img src="assets/villa-aurelia/foto1.jpg">
+<img src="assets/villa-aurelia/foto2.jpg">
+<img src="assets/villa-aurelia/foto3.jpg">
+<img src="assets/villa-aurelia/foto4.jpg">
+<img src="assets/villa-aurelia/foto5.jpg">
+<img src="assets/villa-aurelia/foto6.jpg">
+<img src="assets/villa-aurelia/foto7.jpg">
+<img src="assets/villa-aurelia/foto8.jpg">
+<img src="assets/villa-aurelia/foto9.jpg">
+<img src="assets/villa-aurelia/foto10.jpg">
+<img src="assets/villa-aurelia/foto11.jpg">
+<img src="assets/villa-aurelia/foto12.jpg">
+
+</div>
+
+</section>
+
+<a class="whatsapp"
+href="https://wa.me/595981466040?text=Hola,%20quiero%20más%20información%20sobre%20el%20Dúplex%20en%20Villa%20Aurelia"
+target="_blank">
+
+WhatsApp
+
+</a>
+
+</body>
+</html>

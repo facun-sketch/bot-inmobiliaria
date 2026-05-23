@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Edificio Bernardino</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+}
+
+body{
+font-family:Arial,sans-serif;
+background:#f5f5f3;
+color:#111;
+line-height:1.5;
+}
+
+header{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+padding:20px 7%;
+background:rgba(255,255,255,.85);
+backdrop-filter:blur(12px);
+display:flex;
+justify-content:space-between;
+align-items:center;
+z-index:100;
+border-bottom:1px solid #ddd;
+}
+
+header a{
+text-decoration:none;
+color:#111;
+font-weight:bold;
+}
+
+.hero{
+height:90vh;
+position:relative;
+overflow:hidden;
+display:flex;
+align-items:end;
+padding:60px;
+color:white;
+}
+
+.hero video{
+position:absolute;
+inset:0;
+width:100%;
+height:100%;
+object-fit:cover;
+}
+
+.overlay{
+position:absolute;
+inset:0;
+background:linear-gradient(to top,rgba(0,0,0,.75),transparent 50%);
+}
+
+.hero-content{
+position:relative;
+z-index:2;
+max-width:700px;
+}
+
+.hero-content h1{
+font-size:72px;
+margin-bottom:10px;
+}
+
+.price{
+font-size:42px;
+font-weight:bold;
+margin-top:18px;
+}
+
+.content{
+padding:80px 7%;
+}
+
+.description{
+background:white;
+padding:40px;
+border-radius:30px;
+box-shadow:0 20px 50px rgba(0,0,0,.08);
+margin-bottom:40px;
+}
+
+.features{
+display:flex;
+flex-wrap:wrap;
+gap:12px;
+margin:25px 0;
+}
+
+.features span{
+background:#f4f4f4;
+border:1px solid #ddd;
+padding:10px 16px;
+border-radius:999px;
+font-size:14px;
+font-weight:600;
+}
+
+.gallery{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+gap:18px;
+margin-top:40px;
+}
+
+.gallery img{
+width:100%;
+height:260px;
+object-fit:cover;
+border-radius:24px;
+transition:.3s;
+cursor:pointer;
+}
+
+.gallery img:hover{
+transform:scale(1.03);
+}
+
+.map{
+margin-top:40px;
+}
+
+.map a{
+display:inline-flex;
+padding:14px 22px;
+background:#111;
+color:white;
+border-radius:999px;
+text-decoration:none;
+font-weight:bold;
+}
+
+.whatsapp{
+position:fixed;
+right:20px;
+bottom:20px;
+background:#111;
+color:white;
+padding:18px 24px;
+border-radius:999px;
+text-decoration:none;
+font-weight:bold;
+z-index:100;
+box-shadow:0 10px 30px rgba(0,0,0,.2);
+}
+
+@media(max-width:900px){
+
+.hero{
+height:75vh;
+padding:35px;
+}
+
+.hero-content h1{
+font-size:42px;
+}
+
+.price{
+font-size:30px;
+}
+
+.content{
+padding:50px 5%;
+}
+
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+
+<a href="index.html">
+← Volver
+</a>
+
+<a href="https://wa.me/595981466040" target="_blank">
+WhatsApp
+</a>
+
+</header>
+
+<section class="hero">
+
+<video autoplay muted loop playsinline>
+<source src="assets/Edificio Bernardino/video-portada.mp4" type="video/mp4">
+</video>
+
+<div class="overlay"></div>
+
+<div class="hero-content">
+
+<h1>Edificio Bernardino</h1>
+
+<p>
+Departamento premium moderno con amenities exclusivos y excelente ubicación.
+</p>
+
+<div class="price">
+Gs. 1.680.000.000
+</div>
+
+</div>
+
+</section>
+
+<section class="content">
+
+<div class="description">
+
+<h2>Descripción</h2>
+
+<p>
+Departamento moderno ubicado en Torre 1 – Piso 3,
+con vista privilegiada a la piscina y patio interno.
+Ideal para vivir o invertir.
+</p>
+
+<div class="features">
+
+<span>118 m²</span>
+<span>2 dormitorios</span>
+<span>1 en suite</span>
+<span>2 cocheras</span>
+<span>Balcón con parrilla</span>
+<span>Cocina integrada</span>
+<span>Área de servicio</span>
+<span>Piscina</span>
+<span>Gimnasio</span>
+<span>Playground</span>
+
+</div>
+
+<h2>Amenities</h2>
+
+<ul style="margin-top:20px;padding-left:20px;">
+
+<li>Piscina</li>
+<li>Gimnasio totalmente equipado</li>
+<li>Quinchos en cada torre</li>
+<li>Cocina interactiva</li>
+<li>Lavandería</li>
+<li>Playground para niños</li>
+<li>Amplios espacios verdes</li>
+<li>Dos accesos a cocheras</li>
+<li>Vestuario de servicio</li>
+<li>3.500m² de patio y jardín</li>
+<li>Porterías 24 horas</li>
+<li>Estacionamientos para visitas</li>
+
+</ul>
+
+<div class="map">
+
+<a href="https://www.google.com/maps/place/Bernardino/@-25.295754,-57.6096013,1408m/data=!3m2!1e3!4b1!4m6!3m5!1s0x945da8799efac2c5:0x74eb785d820bc795!8m2!3d-25.295754!4d-57.6070264!16s%2Fg%2F11g9qdxbxw?entry=ttu&g_ep=EgoyMDI2MDUxNy4wIKXMDSoASAFQAw%3D%3D"
+target="_blank">
+
+Ver ubicación
+
+</a>
+
+</div>
+
+</div>
+
+<h2>Galería</h2>
+
+<div class="gallery">
+
+<img src="assets/Edificio Bernardino/foto1.jpg">
+<img src="assets/Edificio Bernardino/foto2.jpg">
+<img src="assets/Edificio Bernardino/foto3.jpg">
+<img src="assets/Edificio Bernardino/foto4.jpg">
+<img src="assets/Edificio Bernardino/foto5.jpg">
+<img src="assets/Edificio Bernardino/foto6.jpg">
+<img src="assets/Edificio Bernardino/foto7.jpg">
+<img src="assets/Edificio Bernardino/foto8.jpg">
+<img src="assets/Edificio Bernardino/foto9.jpg">
+<img src="assets/Edificio Bernardino/foto10.jpg">
+
+</div>
+
+</section>
+
+<a class="whatsapp"
+href="https://wa.me/595981466040?text=Hola,%20quiero%20más%20información%20sobre%20Edificio%20Bernardino"
+target="_blank">
+
+WhatsApp
+
+</a>
+
+</body>
+</html>
