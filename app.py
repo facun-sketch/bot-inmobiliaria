@@ -53,15 +53,15 @@ def imagenes_files(filename):
 # =========================
 
 cliente = OpenAI(
-    api_key=os.getenv"(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")
+    api_key=os.getenv("OPENAI_API_KEY")
 )
 
 # =========================
 # TWILIO
 # =========================
 
-account_sid =  os.getenv "AC05e4e8d4cdca2fd34a1d688b6fb09f8f"
-auth_token =  os.getenv"a51a37e22d168d316cdb920b1c7a2ccf"
+account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+auth_token = os.getenv("TWILIO_AUTH_TOKEN")
 
 twilio_client = Client(account_sid, auth_token)
 
@@ -120,7 +120,7 @@ def chat_web():
 
     data = request.get_json()
 
-    mensaje = data.get("message", "")
+    mensaje = data.get("mensaje", "")
 
     respuesta_ia = cliente.chat.completions.create(
         model="gpt-4o-mini",
