@@ -53,7 +53,7 @@ def imagenes_files(filename):
 # =========================
 
 cliente = OpenAI(
-    api_key=os.getenv"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"
+    api_key=os.getenv"(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")
 )
 
 # =========================
