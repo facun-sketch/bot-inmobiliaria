@@ -30,6 +30,14 @@ def ykua_sati():
 def hassler():
     return send_from_directory(".", "detalle-ventura-hassler.html")
 
+@app.route('/assets/<path:filename>')
+def assets_files(filename):
+    return send_from_directory('assets', filename)
+
+@app.route('/imagenes/<path:filename>')
+def imagenes_files(filename):
+    return send_from_directory('imagenes', filename)
+
 # 🔑 API KEY OPENAI
 cliente = OpenAI(
     api_key=os.getenv("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")
