@@ -1,4 +1,4 @@
-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
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from openai import OpenAI
@@ -53,15 +53,15 @@ def imagenes_files(filename):
 # =========================
 
 cliente = OpenAI(
-    api_key="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"
+    api_key=os.getenv"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"
 )
 
 # =========================
 # TWILIO
 # =========================
 
-account_sid = "TU_ACCOUNT_SID"
-auth_token = "TU_AUTH_TOKEN"
+account_sid =  os.getenv "AC05e4e8d4cdca2fd34a1d688b6fb09f8f"
+auth_token =  os.getenv"a51a37e22d168d316cdb920b1c7a2ccf"
 
 twilio_client = Client(account_sid, auth_token)
 
