@@ -14,6 +14,21 @@ CORS(app)
 @app.route("/")
 def home():
     return send_from_directory(".", "index.html")
+@app.route("/detalle-villa-aurelia.html")
+def villa_aurelia():
+    return send_from_directory(".", "detalle-villa-aurelia.html")
+
+@app.route("/detalle-bernardino.html")
+def bernardino():
+    return send_from_directory(".", "detalle-bernardino.html")
+
+@app.route("/detalle-edificio-ventura-ykua-sati.html")
+def ykua_sati():
+    return send_from_directory(".", "detalle-edificio-ventura-ykua-sati.html")
+
+@app.route("/detalle-ventura-hassler.html")
+def hassler():
+    return send_from_directory(".", "detalle-ventura-hassler.html")
 
 # 🔑 API KEY OPENAI
 cliente = OpenAI(
