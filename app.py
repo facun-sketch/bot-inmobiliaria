@@ -40,7 +40,17 @@ def assets_files(filename):
 
 @app.route('/imagenes/<path:filename>')
 def imagenes_files(filename):
+
     return send_from_directory('imagenes', filename)
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+
+    mensaje = data.get("message", "")
+
+    return jsonify({
+        "reply": f"Recibí tu mensaje: {mensaje}"
+    })
 
 # 🔑 API KEY OPENAI
 cliente = OpenAI(
