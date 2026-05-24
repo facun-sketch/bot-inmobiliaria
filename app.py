@@ -118,32 +118,42 @@ def guardar_cliente_caliente(numero_cliente, mensaje, respuesta):
 @app.route('/chat', methods=['POST'])
 def chat_web():
 
-    data = request.get_json()
+    try:
 
-    mensaje = data.get("mensaje", "")
+        data = request.get_json()
 
-    respuesta_ia = cliente.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": """
-                Sos un asesor inmobiliario profesional de Paraguay.
-                Respondé natural, corto y amable.
-                """
-            },
-            {
-                "role": "user",
-                "content": mensaje
-            }
-        ]
-    )
+        mensaje = data.get("mensaje", "")
 
-    respuesta = respuesta_ia.choices[0].message.content
+        respuesta_ia = cliente.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": """
+Sos un asesor inmobiliario profesional de Paraguay.
+Respondé natural, corto y amable.
+"""
+                },
+                {
+                    "role": "user",
+                    "content": mensaje
+                }
+            ]
+        )
 
-    return jsonify({
-        "reply": respuesta
-    })
+        respuesta = respuesta_ia.choices[0].message.content
+
+        return jsonify({
+            "reply": respuesta
+        })
+
+    except Exception as e:
+
+        print("ERROR IA:", e)
+
+        return jsonify({
+            "reply": "Ahora mismo el asistente no está disponible."
+        })
 
 # =========================
 # WHATSAPP IA
