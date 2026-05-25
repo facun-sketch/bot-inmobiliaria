@@ -219,6 +219,23 @@ def whatsapp_bot():
 
     respuesta = respuesta_ia.choices[0].message.content
 
+    respuesta = f"""
+     Hola 👋
+
+     Soy Silvia Espínola, agente inmobiliaria asociada a Keller Williams Paraguay.
+
+     Gracias por comunicarte 😊
+     Te responderé en la brevedad posible.
+
+     Mientras tanto, podés ver algunas propiedades disponibles aquí:
+
+     https://silviaespinolakw.up.railway.app
+
+     --------------------------------
+
+      {respuesta}
+      """
+
     palabras_calientes = [
         "precio",
         "comprar",
