@@ -36,6 +36,10 @@ def ykua_sati():
 def hassler():
     return send_from_directory(".", "detalle-ventura-hassler.html")
 
+@app.route('/detalle-duplex-vya-raity.html')
+def duplex_vya_raity():
+    return send_file('detalle-duplex-vya-raity.html')
+
 # =========================
 # ARCHIVOS
 # =========================
