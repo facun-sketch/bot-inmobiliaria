@@ -41,139 +41,149 @@
   </noscript>
 
   <style>
-    body{
-      font-family: Arial, sans-serif;
-      background:#f4f4f4;
-      margin:0;
-      padding:0;
-      color:#111;
-    }
 
-    .container{
-      width:90%;
-      max-width:1100px;
-      margin:auto;
-      padding:30px 0;
-    }
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
 
-    h1{
-      font-size:38px;
-      margin-bottom:10px;
-    }
+body{
+  font-family:Arial,sans-serif;
+  background:#f4f4f4;
+  color:#111;
+}
 
-    .ubicacion{
-      color:#666;
-      margin-bottom:30px;
-      font-size:18px;
-    }
+.hero{
+  position:relative;
+  height:100vh;
+  overflow:hidden;
+}
 
-    .gallery{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-      gap:15px;
-      margin-bottom:40px;
-    }
+.hero-img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
 
-    .gallery img{
-      width:100%;
-      border-radius:14px;
-      object-fit:cover;
-      height:250px;
-    }
+.overlay{
+  position:absolute;
+  inset:0;
+  background:rgba(0,0,0,.45);
+}
 
-    .info{
-      background:white;
-      padding:30px;
-      border-radius:20px;
-      box-shadow:0 5px 20px rgba(0,0,0,.08);
-      line-height:1.7;
-    }
+.hero-content{
+  position:absolute;
+  top:50%;
+  left:8%;
+  transform:translateY(-50%);
+  color:white;
+  max-width:700px;
+}
 
-    .precio{
-      color:#0b8f3f;
-      font-size:30px;
-      font-weight:bold;
-      margin-top:20px;
-    }
+.meta{
+  font-size:14px;
+  letter-spacing:2px;
+  margin-bottom:15px;
+}
 
-    .btn{
-      display:inline-block;
-      margin-top:25px;
-      background:#111;
-      color:white;
-      padding:15px 30px;
-      border-radius:12px;
-      text-decoration:none;
-      font-weight:bold;
-    }
+.hero h1{
+  font-size:72px;
+  margin-bottom:20px;
+}
 
-    .btn:hover{
-      opacity:.9;
-    }
-  </style>
-</head>
+.descripcion{
+  font-size:22px;
+  line-height:1.6;
+  margin-bottom:25px;
+}
 
-<body>
+.precio{
+  font-size:42px;
+  font-weight:bold;
+  margin-bottom:25px;
+}
 
-<div class="container">
+.btn{
+  display:inline-block;
+  background:#111;
+  color:white;
+  text-decoration:none;
+  padding:18px 35px;
+  border-radius:14px;
+  font-weight:bold;
+}
 
-  <h1>EN VENTA DUPLEX A ESTRENAR</h1>
+.contenido{
+  width:90%;
+  max-width:1300px;
+  margin:auto;
+  padding:70px 0;
+}
 
-  <div class="ubicacion">
-    📍 Barrio Cerrado Vy'a Raity Alto Pinar, Luque
-  </div>
+.gallery{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+  gap:20px;
+  margin-bottom:50px;
+}
 
-  <div class="gallery">
-    <img src="imagenes/duplex-vya-raity/portada.jpg">
-    <img src="imagenes/duplex-vya-raity/foto1.jpg">
-    <img src="imagenes/duplex-vya-raity/foto2.jpg">
-    <img src="imagenes/duplex-vya-raity/foto3.jpg">
-    <img src="imagenes/duplex-vya-raity/foto4.jpg">
-    <img src="imagenes/duplex-vya-raity/foto5.jpg">
-    <img src="imagenes/duplex-vya-raity/foto6.jpg">
-    <img src="imagenes/duplex-vya-raity/foto7.jpg">
-    <img src="imagenes/duplex-vya-raity/foto8.jpg">
-    <img src="imagenes/duplex-vya-raity/foto9.jpg">
-  </div>
+.gallery img{
+  width:100%;
+  height:300px;
+  object-fit:cover;
+  border-radius:18px;
+}
 
-  <div class="info">
+.info{
+  background:white;
+  padding:40px;
+  border-radius:25px;
+  line-height:1.8;
+}
 
-    <h2>Planta baja</h2>
+.info h2{
+  margin-top:25px;
+  margin-bottom:15px;
+}
 
-    <ul>
-      <li>Sala - Comedor</li>
-      <li>Cocina con mesada de granito y desayunador</li>
-      <li>Incluye horno, anafe, extractor y termocalefón</li>
-      <li>Parrilla y jardín</li>
-      <li>Baño social</li>
-      <li>Área de lavadero</li>
-      <li>2 cocheras</li>
-    </ul>
+.maps-btn{
+  display:inline-block;
+  margin-top:30px;
+  background:#0b8f3f;
+  color:white;
+  text-decoration:none;
+  padding:15px 28px;
+  border-radius:12px;
+  font-weight:bold;
+}
 
-    <h2>Planta alta</h2>
+</style>
+  </head>
+  <body>
 
-    <ul>
-      <li>2 dormitorios en suite</li>
-    </ul>
+<header class="hero">
 
-    <h2>Detalles adicionales</h2>
+  <img
+    src="imagenes/duplex-vya-raity/portada.jpg"
+    class="hero-img"
+  >
 
-    <p>
-      Terminaciones de pisos de porcelanato, iluminación LED,
-      conexión trifásica y tubería de cobre para aire acondicionado.
+  <div class="overlay"></div>
+
+  <div class="hero-content">
+
+    <p class="meta">
+      Keller Williams Paraguay
     </p>
 
-    <h2>El barrio ofrece</h2>
+    <h1>
+      Dúplex Vy'a Raity
+    </h1>
 
-    <ul>
-      <li>Vigilancia 24hs con caseta y CCC</li>
-      <li>Portón eléctrico vehicular</li>
-      <li>Tanque de agua de 20.000 litros</li>
-      <li>Generador eléctrico para áreas comunes</li>
-    </ul>
-
-    <p>
-      Con planes de financiamiento flexibles y precios especiales por pagos al contado.
+    <p class="descripcion">
+      Exclusivos dúplex a estrenar en Barrio Cerrado Vy'a Raity Alto Pinar, Luque.
+      Diseño moderno, terminaciones premium y excelente ubicación.
     </p>
 
     <div class="precio">
@@ -187,16 +197,71 @@
        Hablar por WhatsApp
     </a>
 
-    <br><br>
+  </div>
+
+</header>
+
+<section class="contenido">
+
+  <div class="gallery">
+
+    <img src="imagenes/duplex-vya-raity/foto1.jpg">
+    <img src="imagenes/duplex-vya-raity/foto2.jpg">
+    <img src="imagenes/duplex-vya-raity/foto3.jpg">
+    <img src="imagenes/duplex-vya-raity/foto4.jpg">
+    <img src="imagenes/duplex-vya-raity/foto5.jpg">
+    <img src="imagenes/duplex-vya-raity/foto6.jpg">
+    <img src="imagenes/duplex-vya-raity/foto7.jpg">
+    <img src="imagenes/duplex-vya-raity/foto8.jpg">
+    <img src="imagenes/duplex-vya-raity/foto9.jpg">
+
+  </div>
+
+  <div class="info">
+
+    <h2>Planta baja</h2>
+
+    <ul>
+      <li>Sala - Comedor</li>
+      <li>Cocina con mesada de granito</li>
+      <li>Horno, anafe y extractor incluidos</li>
+      <li>Parrilla y jardín</li>
+      <li>Baño social</li>
+      <li>Área de lavadero</li>
+      <li>2 cocheras</li>
+    </ul>
+
+    <h2>Planta alta</h2>
+
+    <ul>
+      <li>2 dormitorios en suite</li>
+    </ul>
+
+    <h2>Detalles premium</h2>
+
+    <p>
+      Pisos de porcelanato, iluminación LED,
+      conexión trifásica y tuberías de cobre para aire acondicionado.
+    </p>
+
+    <h2>Barrio cerrado</h2>
+
+    <ul>
+      <li>Vigilancia 24 horas</li>
+      <li>Portón eléctrico</li>
+      <li>Tanque de agua de 20.000 litros</li>
+      <li>Generador para áreas comunes</li>
+    </ul>
 
     <a href="https://maps.app.goo.gl/x3EAy54oLN44x3cm7"
-       target="_blank">
-       📍 Ver ubicación en Google Maps
+       target="_blank"
+       class="maps-btn">
+       📍 Ver ubicación
     </a>
 
   </div>
 
-</div>
+</section>
 
 </body>
-</html>
+    </html>
