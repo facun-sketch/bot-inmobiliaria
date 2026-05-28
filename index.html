@@ -143,6 +143,7 @@
 Descubrí propiedades exclusivas seleccionadas cuidadosamente para vivir, invertir y encontrar nuevas oportunidades en las mejores zonas de Asunción.
 </p>
       <div class="property-grid">
+      <div id="propiedades-dinamicas"></div>
         <article class="property-card">
           <img src="assets/villa-aurelia/portada.jpg" alt="Dúplex Villa Aurelia" />
           <div class="property-body">
@@ -379,5 +380,60 @@ Ver más
     function openModal(src){document.getElementById('modalImg').src=src;document.getElementById('modal').style.display='flex'}
     function closeModal(){document.getElementById('modal').style.display='none'}
   </script>
+ <script>
+
+const SHEET_ID = "1Li4cya_JK-GSeZFP_60socZGNM0S7FSKy7Pga9eKXYc";
+
+const url =
+`https://opensheet.elk.sh/${SHEET_ID}/Hoja1`;
+
+fetch(url)
+.then(res => res.json())
+.then(data => {
+
+const container =
+document.getElementById("propiedades-dinamicas");
+
+container.innerHTML = "";
+
+data.forEach(prop => {
+
+container.innerHTML += `
+
+<div class="card">
+
+<img
+src="${prop.imagen}"
+style="
+width:100%;
+height:250px;
+object-fit:cover;
+border-radius:20px;
+"
+/>
+
+<h2>${prop.titulo}</h2>
+
+<h3>${prop.precio}</h3>
+
+<p>${prop.descripcion}</p>
+
+<a
+class="btn"
+href="${prop.whatsapp}"
+target="_blank"
+>
+Hablar por WhatsApp
+</a>
+
+</div>
+
+`;
+
+});
+
+});
+
+</script>
 </body>
 </html>
