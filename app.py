@@ -52,6 +52,10 @@ def altea_sol():
 def aqua_village():
     return send_from_directory(".", "detalle-aqua-village.html")
 
+@app.route("/detalle-altea-hub.html")
+def altea_hub():
+    return send_from_directory(".", "detalle-altea-hub.html")
+
 # =========================
 # ARCHIVOS
 # =========================
