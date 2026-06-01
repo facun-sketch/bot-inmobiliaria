@@ -40,6 +40,18 @@ def hassler():
 def duplex_vya_raity():
     return send_file('detalle-duplex-vya-raity.html')
 
+@app.route("/detalle-altea-laguna.html")
+def altea_laguna():
+    return send_from_directory(".", "detalle-altea-laguna.html")
+
+@app.route("/detalle-altea-sol.html")
+def altea_sol():
+    return send_from_directory(".", "detalle-altea-sol.html")
+
+@app.route("/detalle-aqua-village.html")
+def aqua_village():
+    return send_from_directory(".", "detalle-aqua-village.html")
+
 # =========================
 # ARCHIVOS
 # =========================
