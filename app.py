@@ -56,6 +56,10 @@ def aqua_village():
 def altea_hub():
     return send_from_directory(".", "detalle-altea-hub.html")
 
+@app.route("/detalle-duplex-shopping-sol.html")
+def detalle_duplex_shopping_sol():
+    return send_from_directory(".", "detalle-duplex-shopping-sol.html")
+
 # =========================
 # ARCHIVOS
 # =========================
@@ -211,6 +215,32 @@ def whatsapp_bot():
 
     4) Edificio Ventura Ykua Sati
     - Desde 100.000 USD
+    
+     DUPLEX SHOPPING DEL SOL
+
+Precio: USD 220.000
+
+175 m² construidos
+
+Ubicado a 5 minutos del Shopping del Sol.
+
+Planta Baja:
+- Garage para 2 vehículos
+- Sala comedor integrada
+- Cocina moderna amoblada
+- Baño social
+- Área de servicio
+- Lavadero
+- Tragaluz
+
+Planta Alta:
+- Suite con vestidor
+- 2 habitaciones
+- Baño familiar
+- Quincho climatizado con parrilla
+
+Ubicación:
+https://maps.app.goo.gl/2rFB5deRSUYXeXov8
 
     """
 
