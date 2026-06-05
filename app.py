@@ -7,6 +7,14 @@ from twilio.rest import Client
 import csv
 from datetime import datetime
 import os
+import json
+
+try:
+    import gspread
+    from google.oauth2.service_account import Credentials
+except ImportError:
+    gspread = None
+    Credentials = None
 
 app = Flask(__name__)
 CORS(app)
@@ -138,6 +146,123 @@ def guardar_cliente_caliente(numero_cliente, mensaje, respuesta):
 # INTERESADOS
 # =========================
 
+INTERESADOS_HEADERS = [
+    'fecha',
+    'nombre',
+    'telefono',
+    'email',
+    'propiedad',
+    'mensaje',
+    'estado'
+]
+
+def obtener_google_sheets_client():
+
+    if gspread is None or Credentials is None:
+        raise RuntimeError("Faltan las dependencias de Google Sheets")
+
+    scopes = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+    ]
+
+    service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
+
+    if not service_account_json:
+        raise RuntimeError("Falta GOOGLE_SERVICE_ACCOUNT_JSON")
+
+    service_account_info = json.loads(service_account_json)
+    credentials = Credentials.from_service_account_info(
+        service_account_info,
+        scopes=scopes
+    )
+
+    return gspread.authorize(credentials)
+
+def guardar_interesado_google_sheets(fecha, nombre, telefono, email, propiedad, mensaje, estado):
+
+    sheet_id = os.getenv('GOOGLE_SHEET_ID')
+
+    if not sheet_id:
+        raise RuntimeError("Falta GOOGLE_SHEET_ID")
+
+    client = obtener_google_sheets_client()
+
+    worksheet_name = os.getenv('GOOGLE_SHEET_TAB', 'Interesados')
+    spreadsheet = client.open_by_key(sheet_id)
+
+    try:
+        worksheet = spreadsheet.worksheet(worksheet_name)
+    except gspread.WorksheetNotFound:
+        worksheet = spreadsheet.add_worksheet(
+            title=worksheet_name,
+            rows=1000,
+            cols=len(INTERESADOS_HEADERS)
+        )
+
+    if not worksheet.row_values(1):
+        worksheet.append_row(INTERESADOS_HEADERS)
+
+    worksheet.append_row([
+        fecha,
+        nombre,
+        telefono,
+        email,
+        propiedad,
+        mensaje,
+        estado
+    ])
+
+def respuesta_interesado(titulo, mensaje):
+
+    return f'''
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{titulo}</title>
+        <style>
+            body{{
+                margin:0;
+                font-family:Arial;
+                background:#f4f4f1;
+                color:#111;
+                display:flex;
+                min-height:100vh;
+                align-items:center;
+                justify-content:center;
+                padding:24px;
+            }}
+            .box{{
+                background:white;
+                max-width:520px;
+                padding:40px;
+                border-radius:24px;
+                box-shadow:0 10px 30px rgba(0,0,0,.08);
+                text-align:center;
+            }}
+            .btn{{
+                display:inline-block;
+                padding:14px 28px;
+                border-radius:999px;
+                background:#111;
+                color:white;
+                text-decoration:none;
+                margin-top:20px;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="box">
+            <h1>{titulo}</h1>
+            <p>{mensaje}</p>
+            <a class="btn" href="/">Volver al inicio</a>
+        </div>
+    </body>
+    </html>
+    '''
+
 @app.route('/guardar-interesado', methods=['POST'])
 def guardar_interesado():
 
@@ -149,24 +274,8 @@ def guardar_interesado():
     mensaje = request.form.get('mensaje', '').strip()
     estado = 'Nuevo'
 
-    archivo = 'interesados.csv'
-    crear_encabezado = not os.path.exists(archivo) or os.path.getsize(archivo) == 0
-
-    with open(archivo, mode='a', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-
-        if crear_encabezado:
-            writer.writerow([
-                'fecha',
-                'nombre',
-                'telefono',
-                'email',
-                'propiedad',
-                'mensaje',
-                'estado'
-            ])
-
-        writer.writerow([
+    try:
+        guardar_interesado_google_sheets(
             fecha,
             nombre,
             telefono,
@@ -174,55 +283,20 @@ def guardar_interesado():
             propiedad,
             mensaje,
             estado
-        ])
+        )
 
-    return '''
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Consulta recibida</title>
-        <style>
-            body{
-                margin:0;
-                font-family:Arial;
-                background:#f4f4f1;
-                color:#111;
-                display:flex;
-                min-height:100vh;
-                align-items:center;
-                justify-content:center;
-                padding:24px;
-            }
-            .box{
-                background:white;
-                max-width:520px;
-                padding:40px;
-                border-radius:24px;
-                box-shadow:0 10px 30px rgba(0,0,0,.08);
-                text-align:center;
-            }
-            .btn{
-                display:inline-block;
-                padding:14px 28px;
-                border-radius:999px;
-                background:#111;
-                color:white;
-                text-decoration:none;
-                margin-top:20px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="box">
-            <h1>Gracias.</h1>
-            <p>Recibimos tu consulta y nos pondremos en contacto.</p>
-            <a class="btn" href="/">Volver al inicio</a>
-        </div>
-    </body>
-    </html>
-    '''
+        return respuesta_interesado(
+            "Gracias.",
+            "Recibimos tu consulta y nos pondremos en contacto."
+        )
+
+    except Exception as e:
+        print("ERROR GOOGLE SHEETS:", e)
+
+        return respuesta_interesado(
+            "No pudimos guardar tu consulta.",
+            "Por favor escribinos por WhatsApp o intentá nuevamente en unos minutos."
+        ), 500
 
 # =========================
 # IA WEB
