@@ -148,6 +148,56 @@ background:#111;
 color:white;
 text-decoration:none;
 margin-top:25px;
+border:none;
+cursor:pointer;
+font-size:16px;
+font-family:Arial;
+}
+
+.btn-light{
+background:#f1f1f1;
+color:#111;
+}
+
+.inquiry-form{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:16px;
+margin-top:20px;
+}
+
+.inquiry-form label{
+display:flex;
+flex-direction:column;
+gap:8px;
+font-weight:bold;
+font-size:14px;
+}
+
+.inquiry-form input,
+.inquiry-form textarea{
+width:100%;
+box-sizing:border-box;
+border:1px solid #ddd;
+border-radius:14px;
+padding:14px;
+font-family:Arial;
+font-size:15px;
+}
+
+.inquiry-form textarea{
+min-height:120px;
+resize:vertical;
+}
+
+.inquiry-form .full{
+grid-column:1/-1;
+}
+
+.inquiry-actions{
+display:flex;
+flex-wrap:wrap;
+gap:12px;
 }
 
 </style>
@@ -263,6 +313,32 @@ Hablar por WhatsApp
 <img src="assets/ventura-hassler/foto9.jpg">
 <img src="assets/ventura-hassler/foto10.jpg">
 <img src="assets/ventura-hassler/foto11.jpg">
+
+</div>
+
+</div>
+
+<div class="content">
+
+<div class="card">
+
+<h2>Estoy interesado</h2>
+
+<form class="inquiry-form" action="/guardar-interesado" method="POST">
+<input type="hidden" name="propiedad" value="Ventura Hassler">
+
+<label>Nombre<input type="text" name="nombre" required></label>
+<label>Teléfono<input type="tel" name="telefono" required></label>
+<label>Email<input type="email" name="email"></label>
+<label class="full">Mensaje<textarea name="mensaje" required>Hola, quiero más información sobre Ventura Hassler.</textarea></label>
+
+<button class="btn" type="submit">Enviar consulta</button>
+</form>
+
+<div class="inquiry-actions">
+<a class="btn" href="https://wa.me/595981466040?text=Hola,%20quiero%20más%20información%20sobre%20Ventura%20Hassler" target="_blank">WhatsApp</a>
+<a class="btn btn-light" href="https://wa.me/595981466040?text=Hola,%20quiero%20agendar%20una%20visita%20para%20Ventura%20Hassler" target="_blank">Agendar visita</a>
+</div>
 
 </div>
 

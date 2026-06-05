@@ -76,9 +76,8 @@ def imagenes_files(filename):
 # OPENAI
 # =========================
 
-cliente = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
-)
+openai_api_key = os.getenv("OPENAI_API_KEY")
+cliente = OpenAI(api_key=openai_api_key) if openai_api_key else None
 
 # =========================
 # TWILIO
@@ -87,7 +86,7 @@ cliente = OpenAI(
 account_sid = os.getenv("TWILIO_ACCOUNT_SID")
 auth_token = os.getenv("TWILIO_AUTH_TOKEN")
 
-twilio_client = Client(account_sid, auth_token)
+twilio_client = Client(account_sid, auth_token) if account_sid and auth_token else None
 
 # =========================
 # GUARDAR CLIENTES
@@ -136,6 +135,96 @@ def guardar_cliente_caliente(numero_cliente, mensaje, respuesta):
         ])
 
 # =========================
+# INTERESADOS
+# =========================
+
+@app.route('/guardar-interesado', methods=['POST'])
+def guardar_interesado():
+
+    fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    nombre = request.form.get('nombre', '').strip()
+    telefono = request.form.get('telefono', '').strip()
+    email = request.form.get('email', '').strip()
+    propiedad = request.form.get('propiedad', '').strip()
+    mensaje = request.form.get('mensaje', '').strip()
+    estado = 'Nuevo'
+
+    archivo = 'interesados.csv'
+    crear_encabezado = not os.path.exists(archivo) or os.path.getsize(archivo) == 0
+
+    with open(archivo, mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+
+        if crear_encabezado:
+            writer.writerow([
+                'fecha',
+                'nombre',
+                'telefono',
+                'email',
+                'propiedad',
+                'mensaje',
+                'estado'
+            ])
+
+        writer.writerow([
+            fecha,
+            nombre,
+            telefono,
+            email,
+            propiedad,
+            mensaje,
+            estado
+        ])
+
+    return '''
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Consulta recibida</title>
+        <style>
+            body{
+                margin:0;
+                font-family:Arial;
+                background:#f4f4f1;
+                color:#111;
+                display:flex;
+                min-height:100vh;
+                align-items:center;
+                justify-content:center;
+                padding:24px;
+            }
+            .box{
+                background:white;
+                max-width:520px;
+                padding:40px;
+                border-radius:24px;
+                box-shadow:0 10px 30px rgba(0,0,0,.08);
+                text-align:center;
+            }
+            .btn{
+                display:inline-block;
+                padding:14px 28px;
+                border-radius:999px;
+                background:#111;
+                color:white;
+                text-decoration:none;
+                margin-top:20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="box">
+            <h1>Gracias.</h1>
+            <p>Recibimos tu consulta y nos pondremos en contacto.</p>
+            <a class="btn" href="/">Volver al inicio</a>
+        </div>
+    </body>
+    </html>
+    '''
+
+# =========================
 # IA WEB
 # =========================
 
@@ -147,6 +236,9 @@ def chat_web():
         data = request.get_json()
 
         mensaje = data.get("mensaje", "")
+
+        if cliente is None:
+            raise RuntimeError("OPENAI_API_KEY no configurada")
 
         respuesta_ia = cliente.chat.completions.create(
             model="gpt-4o-mini",
@@ -244,6 +336,11 @@ https://maps.app.goo.gl/2rFB5deRSUYXeXov8
 
     """
 
+    if cliente is None:
+        resp = MessagingResponse()
+        resp.message("Ahora mismo el asistente no está disponible.")
+        return str(resp)
+
     respuesta_ia = cliente.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
@@ -331,6 +428,6 @@ if __name__ == '__main__':
 
     app.run(
         host="0.0.0.0",
-        port=5000,
+        port=int(os.getenv("PORT", 5000)),
         debug=True
     )

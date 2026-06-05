@@ -113,6 +113,10 @@ body{
   padding:18px 35px;
   border-radius:14px;
   font-weight:bold;
+  border:none;
+  cursor:pointer;
+  font-size:16px;
+  font-family:Arial;
 }
 
 .contenido{
@@ -157,6 +161,60 @@ body{
   padding:15px 28px;
   border-radius:12px;
   font-weight:bold;
+}
+
+.inquiry-card{
+  background:white;
+  padding:40px;
+  border-radius:25px;
+  line-height:1.6;
+  margin-top:40px;
+}
+
+.inquiry-form{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:16px;
+  margin-top:20px;
+}
+
+.inquiry-form label{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  font-weight:bold;
+  font-size:14px;
+}
+
+.inquiry-form input,
+.inquiry-form textarea{
+  width:100%;
+  border:1px solid #ddd;
+  border-radius:14px;
+  padding:14px;
+  font-family:Arial;
+  font-size:15px;
+}
+
+.inquiry-form textarea{
+  min-height:120px;
+  resize:vertical;
+}
+
+.inquiry-form .full{
+  grid-column:1/-1;
+}
+
+.inquiry-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:20px;
+}
+
+.btn-light{
+  background:#f1f1f1;
+  color:#111;
 }
 
 </style>
@@ -259,6 +317,28 @@ body{
        class="maps-btn">
        📍 Ver ubicación
     </a>
+
+  </div>
+
+  <div class="inquiry-card">
+
+    <h2>Estoy interesado</h2>
+
+    <form class="inquiry-form" action="/guardar-interesado" method="POST">
+      <input type="hidden" name="propiedad" value="Dúplex Vy'a Raity">
+
+      <label>Nombre<input type="text" name="nombre" required></label>
+      <label>Teléfono<input type="tel" name="telefono" required></label>
+      <label>Email<input type="email" name="email"></label>
+      <label class="full">Mensaje<textarea name="mensaje" required>Hola, quiero más información sobre el Dúplex Vy'a Raity.</textarea></label>
+
+      <button class="btn" type="submit">Enviar consulta</button>
+    </form>
+
+    <div class="inquiry-actions">
+      <a class="btn" href="https://wa.me/595981466040?text=Hola,%20quiero%20más%20información%20sobre%20el%20Dúplex%20Vy'a%20Raity" target="_blank">WhatsApp</a>
+      <a class="btn btn-light" href="https://wa.me/595981466040?text=Hola,%20quiero%20agendar%20una%20visita%20para%20el%20Dúplex%20Vy'a%20Raity" target="_blank">Agendar visita</a>
+    </div>
 
   </div>
 
