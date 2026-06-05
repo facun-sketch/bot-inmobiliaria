@@ -24,6 +24,10 @@ print("FLASK LISTO")
 def home():
     return send_from_directory(".", "index.html")
 
+@app.route("/health")
+def health():
+    return "OK"
+
 @app.route("/detalle-villa-aurelia.html")
 def villa_aurelia():
     return send_from_directory(".", "detalle-villa-aurelia.html")
@@ -146,6 +150,77 @@ def guardar_cliente_caliente(numero_cliente, mensaje, respuesta):
 # INTERESADOS
 # =========================
 
+INTERESADOS_HEADERS = [
+    'fecha',
+    'nombre',
+    'telefono',
+    'email',
+    'propiedad',
+    'mensaje',
+    'estado'
+]
+
+def guardar_interesado_backup(row):
+
+    archivo = 'interesados_backup.csv'
+    crear_encabezado = not os.path.exists(archivo) or os.path.getsize(archivo) == 0
+
+    with open(archivo, mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+
+        if crear_encabezado:
+            writer.writerow(INTERESADOS_HEADERS)
+
+        writer.writerow(row)
+
+def guardar_interesado_google_sheets(row):
+
+    print("Intentando guardar interesado en Google Sheets")
+
+    import json
+    import gspread
+    from google.oauth2.service_account import Credentials
+
+    service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
+    sheet_id = os.getenv('GOOGLE_SHEET_ID')
+
+    if not service_account_json:
+        raise RuntimeError("Falta GOOGLE_SERVICE_ACCOUNT_JSON")
+
+    if not sheet_id:
+        raise RuntimeError("Falta GOOGLE_SHEET_ID")
+
+    scopes = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive'
+    ]
+
+    service_account_info = json.loads(service_account_json)
+    credentials = Credentials.from_service_account_info(
+        service_account_info,
+        scopes=scopes
+    )
+
+    client = gspread.authorize(credentials)
+    worksheet_name = os.getenv('GOOGLE_SHEET_TAB', 'Interesados')
+    spreadsheet = client.open_by_key(sheet_id)
+
+    try:
+        worksheet = spreadsheet.worksheet(worksheet_name)
+    except gspread.WorksheetNotFound:
+        worksheet = spreadsheet.add_worksheet(
+            title=worksheet_name,
+            rows=1000,
+            cols=len(INTERESADOS_HEADERS)
+        )
+
+    if not worksheet.row_values(1):
+        worksheet.append_row(INTERESADOS_HEADERS)
+
+    worksheet.append_row(row)
+
+    print("Interesado guardado en Google Sheets")
+
 def respuesta_interesado(titulo, mensaje):
 
     return f'''
@@ -198,7 +273,45 @@ def respuesta_interesado(titulo, mensaje):
 
 @app.route('/guardar-interesado', methods=['POST'])
 def guardar_interesado():
-    return "OK"
+
+    fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    nombre = request.form.get('nombre', '').strip()
+    telefono = request.form.get('telefono', '').strip()
+    email = request.form.get('email', '').strip()
+    propiedad = request.form.get('propiedad', '').strip()
+    mensaje = request.form.get('mensaje', '').strip()
+    estado = 'Nuevo'
+
+    row = [
+        fecha,
+        nombre,
+        telefono,
+        email,
+        propiedad,
+        mensaje,
+        estado
+    ]
+
+    try:
+        guardar_interesado_google_sheets(row)
+
+        return respuesta_interesado(
+            "Gracias.",
+            "Recibimos tu consulta y nos pondremos en contacto."
+        )
+
+    except Exception as e:
+        print(f"Error Google Sheets: {e}")
+
+        try:
+            guardar_interesado_backup(row)
+        except Exception as backup_error:
+            print(f"Error backup interesados: {backup_error}")
+
+        return respuesta_interesado(
+            "No pudimos guardar tu consulta.",
+            "Por favor escribinos por WhatsApp."
+        ), 500
 
 # =========================
 # IA WEB
