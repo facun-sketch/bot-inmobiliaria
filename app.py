@@ -7,17 +7,13 @@ from twilio.rest import Client
 import csv
 from datetime import datetime
 import os
-import json
 
-try:
-    import gspread
-    from google.oauth2.service_account import Credentials
-except ImportError:
-    gspread = None
-    Credentials = None
+print("APP IMPORTADA")
 
 app = Flask(__name__)
 CORS(app)
+
+print("FLASK LISTO")
 
 # =========================
 # PAGINAS
@@ -87,6 +83,8 @@ def imagenes_files(filename):
 openai_api_key = os.getenv("OPENAI_API_KEY")
 cliente = OpenAI(api_key=openai_api_key) if openai_api_key else None
 
+print("OPENAI CONFIGURADO")
+
 # =========================
 # TWILIO
 # =========================
@@ -95,6 +93,8 @@ account_sid = os.getenv("TWILIO_ACCOUNT_SID")
 auth_token = os.getenv("TWILIO_AUTH_TOKEN")
 
 twilio_client = Client(account_sid, auth_token) if account_sid and auth_token else None
+
+print("TWILIO CONFIGURADO")
 
 # =========================
 # GUARDAR CLIENTES
@@ -145,73 +145,6 @@ def guardar_cliente_caliente(numero_cliente, mensaje, respuesta):
 # =========================
 # INTERESADOS
 # =========================
-
-INTERESADOS_HEADERS = [
-    'fecha',
-    'nombre',
-    'telefono',
-    'email',
-    'propiedad',
-    'mensaje',
-    'estado'
-]
-
-def obtener_google_sheets_client():
-
-    if gspread is None or Credentials is None:
-        raise RuntimeError("Faltan las dependencias de Google Sheets")
-
-    scopes = [
-        'https://www.googleapis.com/auth/spreadsheets',
-        'https://www.googleapis.com/auth/drive'
-    ]
-
-    service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
-
-    if not service_account_json:
-        raise RuntimeError("Falta GOOGLE_SERVICE_ACCOUNT_JSON")
-
-    service_account_info = json.loads(service_account_json)
-    credentials = Credentials.from_service_account_info(
-        service_account_info,
-        scopes=scopes
-    )
-
-    return gspread.authorize(credentials)
-
-def guardar_interesado_google_sheets(fecha, nombre, telefono, email, propiedad, mensaje, estado):
-
-    sheet_id = os.getenv('GOOGLE_SHEET_ID')
-
-    if not sheet_id:
-        raise RuntimeError("Falta GOOGLE_SHEET_ID")
-
-    client = obtener_google_sheets_client()
-
-    worksheet_name = os.getenv('GOOGLE_SHEET_TAB', 'Interesados')
-    spreadsheet = client.open_by_key(sheet_id)
-
-    try:
-        worksheet = spreadsheet.worksheet(worksheet_name)
-    except gspread.WorksheetNotFound:
-        worksheet = spreadsheet.add_worksheet(
-            title=worksheet_name,
-            rows=1000,
-            cols=len(INTERESADOS_HEADERS)
-        )
-
-    if not worksheet.row_values(1):
-        worksheet.append_row(INTERESADOS_HEADERS)
-
-    worksheet.append_row([
-        fecha,
-        nombre,
-        telefono,
-        email,
-        propiedad,
-        mensaje,
-        estado
-    ])
 
 def respuesta_interesado(titulo, mensaje):
 
@@ -265,38 +198,7 @@ def respuesta_interesado(titulo, mensaje):
 
 @app.route('/guardar-interesado', methods=['POST'])
 def guardar_interesado():
-
-    fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    nombre = request.form.get('nombre', '').strip()
-    telefono = request.form.get('telefono', '').strip()
-    email = request.form.get('email', '').strip()
-    propiedad = request.form.get('propiedad', '').strip()
-    mensaje = request.form.get('mensaje', '').strip()
-    estado = 'Nuevo'
-
-    try:
-        guardar_interesado_google_sheets(
-            fecha,
-            nombre,
-            telefono,
-            email,
-            propiedad,
-            mensaje,
-            estado
-        )
-
-        return respuesta_interesado(
-            "Gracias.",
-            "Recibimos tu consulta y nos pondremos en contacto."
-        )
-
-    except Exception as e:
-        print("ERROR GOOGLE SHEETS:", e)
-
-        return respuesta_interesado(
-            "No pudimos guardar tu consulta.",
-            "Por favor escribinos por WhatsApp o intentá nuevamente en unos minutos."
-        ), 500
+    return "OK"
 
 # =========================
 # IA WEB
