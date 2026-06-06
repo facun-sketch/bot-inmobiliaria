@@ -221,6 +221,43 @@ def guardar_interesado_google_sheets(row):
 
     print("Interesado guardado en Google Sheets")
 
+def enviar_email_interesado(fecha, nombre, telefono, email, propiedad, mensaje):
+
+    import smtplib
+    from email.message import EmailMessage
+
+    smtp_host = os.getenv('SMTP_HOST')
+    smtp_port = int(os.getenv('SMTP_PORT', 587))
+    smtp_user = os.getenv('SMTP_USER')
+    smtp_password = os.getenv('SMTP_PASSWORD')
+    email_from = os.getenv('EMAIL_FROM', smtp_user)
+    email_to = os.getenv('EMAIL_TO')
+
+    if not smtp_host or not smtp_user or not smtp_password or not email_to:
+        raise RuntimeError("Faltan variables SMTP para enviar email")
+
+    body = f"""
+Nuevo interesado recibido.
+
+Fecha: {fecha}
+Nombre: {nombre}
+Teléfono: {telefono}
+Email: {email}
+Propiedad: {propiedad}
+Mensaje: {mensaje}
+"""
+
+    msg = EmailMessage()
+    msg['Subject'] = f'Nuevo interesado - {propiedad}'
+    msg['From'] = email_from
+    msg['To'] = email_to
+    msg.set_content(body)
+
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+        server.starttls()
+        server.login(smtp_user, smtp_password)
+        server.send_message(msg)
+
 def respuesta_interesado(titulo, mensaje):
 
     return f'''
@@ -294,6 +331,19 @@ def guardar_interesado():
 
     try:
         guardar_interesado_google_sheets(row)
+
+        try:
+            enviar_email_interesado(
+                fecha,
+                nombre,
+                telefono,
+                email,
+                propiedad,
+                mensaje
+            )
+            print("Email enviado correctamente")
+        except Exception as email_error:
+            print(f"Error enviando email: {email_error}")
 
         return respuesta_interesado(
             "Gracias.",
