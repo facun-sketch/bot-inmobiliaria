@@ -161,6 +161,13 @@ INTERESADOS_HEADERS = [
     'fecha_seguimiento'
 ]
 
+ESTADOS_INTERESADO = [
+    'Nuevo',
+    'Contactado',
+    'Visita agendada',
+    'Cerrado'
+]
+
 def guardar_interesado_backup(row):
 
     archivo = 'interesados_backup.csv'
@@ -389,21 +396,52 @@ def admin_interesados():
         import html
 
         worksheet, gspread = obtener_interesados_worksheet()
-        rows = worksheet.get_all_records()
+        values = worksheet.get_all_values()
+        headers = values[0] if values else INTERESADOS_HEADERS
+        rows = values[1:] if len(values) > 1 else []
 
         table_rows = ""
 
-        for interesado in rows:
+        for index, row in enumerate(rows, start=2):
+            interesado = {
+                header: row[pos] if pos < len(row) else ''
+                for pos, header in enumerate(headers)
+            }
+
             nombre = html.escape(str(interesado.get('nombre', '')))
+            telefono = html.escape(str(interesado.get('telefono', '')))
+            email = html.escape(str(interesado.get('email', '')))
             propiedad = html.escape(str(interesado.get('propiedad', '')))
-            estado = html.escape(str(interesado.get('estado', '')))
+            estado_actual = str(interesado.get('estado', '')) or 'Nuevo'
+            estado = html.escape(estado_actual)
             fecha = html.escape(str(interesado.get('fecha', '')))
+
+            botones_estado = ""
+
+            for estado_opcion in ESTADOS_INTERESADO:
+                estado_opcion_html = html.escape(estado_opcion)
+                activo = ' active' if estado_opcion == estado_actual else ''
+
+                botones_estado += f"""
+                <form action="/admin/interesados/estado" method="POST">
+                    <input type="hidden" name="row" value="{index}">
+                    <input type="hidden" name="estado" value="{estado_opcion_html}">
+                    <button class="state-btn{activo}" type="submit">{estado_opcion_html}</button>
+                </form>
+                """
 
             table_rows += f"""
             <tr>
                 <td>{nombre}</td>
+                <td>{telefono}</td>
+                <td>{email}</td>
                 <td>{propiedad}</td>
-                <td>{estado}</td>
+                <td>
+                    <strong class="status">{estado}</strong>
+                    <div class="state-actions">
+                        {botones_estado}
+                    </div>
+                </td>
                 <td>{fecha}</td>
             </tr>
             """
@@ -421,40 +459,110 @@ def admin_interesados():
                     font-family:Arial;
                     background:#f4f4f1;
                     color:#111;
-                    padding:40px;
+                    padding:32px;
+                }}
+                .page{{
+                    max-width:1200px;
+                    margin:0 auto;
+                }}
+                .top{{
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    gap:16px;
+                    margin-bottom:24px;
+                }}
+                .top p{{
+                    margin:6px 0 0;
+                    color:#555;
+                }}
+                .table-wrap{{
+                    overflow-x:auto;
+                    background:white;
+                    border-radius:16px;
+                    box-shadow:0 10px 30px rgba(0,0,0,.08);
                 }}
                 table{{
                     width:100%;
                     border-collapse:collapse;
-                    background:white;
+                    min-width:900px;
                 }}
                 th,
                 td{{
                     padding:14px;
                     border-bottom:1px solid #ddd;
                     text-align:left;
+                    vertical-align:top;
                 }}
                 th{{
                     background:#111;
                     color:white;
+                    font-size:14px;
+                }}
+                .status{{
+                    display:inline-block;
+                    margin-bottom:10px;
+                }}
+                .state-actions{{
+                    display:flex;
+                    flex-wrap:wrap;
+                    gap:8px;
+                }}
+                .state-actions form{{
+                    margin:0;
+                }}
+                .state-btn{{
+                    border:1px solid #ddd;
+                    background:#f7f7f7;
+                    color:#111;
+                    border-radius:999px;
+                    padding:8px 12px;
+                    cursor:pointer;
+                    font-family:Arial;
+                    font-size:13px;
+                }}
+                .state-btn.active{{
+                    background:#111;
+                    border-color:#111;
+                    color:white;
+                }}
+                @media(max-width:700px){{
+                    body{{
+                        padding:18px;
+                    }}
+                    .top{{
+                        display:block;
+                    }}
                 }}
             </style>
         </head>
         <body>
-            <h1>Interesados</h1>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th>Propiedad</th>
-                        <th>Estado</th>
-                        <th>Fecha</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {table_rows}
-                </tbody>
-            </table>
+            <main class="page">
+                <div class="top">
+                    <div>
+                        <h1>Interesados</h1>
+                        <p>Seguimiento básico de consultas recibidas.</p>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Teléfono</th>
+                                <th>Email</th>
+                                <th>Propiedad</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {table_rows}
+                        </tbody>
+                    </table>
+                </div>
+            </main>
         </body>
         </html>
         '''
@@ -462,6 +570,47 @@ def admin_interesados():
     except Exception as e:
         print(f"Error admin interesados: {e}")
         return "No se pudieron cargar los interesados.", 500
+
+@app.route('/admin/interesados/estado', methods=['POST'])
+def actualizar_estado_interesado():
+
+    try:
+        row_number = int(request.form.get('row', '0'))
+        nuevo_estado = request.form.get('estado', '').strip()
+
+        if row_number < 2:
+            raise RuntimeError("Fila inválida")
+
+        if nuevo_estado not in ESTADOS_INTERESADO:
+            raise RuntimeError("Estado inválido")
+
+        worksheet, gspread = obtener_interesados_worksheet()
+        headers = worksheet.row_values(1)
+
+        estado_col = headers.index('estado') + 1
+        seguimiento_col = headers.index('fecha_seguimiento') + 1
+        fecha_seguimiento = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        worksheet.update_cell(row_number, estado_col, nuevo_estado)
+        worksheet.update_cell(row_number, seguimiento_col, fecha_seguimiento)
+
+        return '''
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta http-equiv="refresh" content="0; url=/admin/interesados">
+            <title>Estado actualizado</title>
+        </head>
+        <body>
+            <a href="/admin/interesados">Volver</a>
+        </body>
+        </html>
+        '''
+
+    except Exception as e:
+        print(f"Error actualizando estado interesado: {e}")
+        return "No se pudo actualizar el estado.", 500
 
 # =========================
 # IA WEB
