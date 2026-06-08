@@ -157,7 +157,8 @@ INTERESADOS_HEADERS = [
     'email',
     'propiedad',
     'mensaje',
-    'estado'
+    'estado',
+    'fecha_seguimiento'
 ]
 
 def guardar_interesado_backup(row):
@@ -176,6 +177,14 @@ def guardar_interesado_backup(row):
 def guardar_interesado_google_sheets(row):
 
     print("Intentando guardar interesado en Google Sheets")
+
+    worksheet, gspread = obtener_interesados_worksheet()
+
+    worksheet.append_row(row)
+
+    print("Interesado guardado en Google Sheets")
+
+def obtener_interesados_worksheet():
 
     import json
     import gspread
@@ -214,12 +223,20 @@ def guardar_interesado_google_sheets(row):
             cols=len(INTERESADOS_HEADERS)
         )
 
-    if not worksheet.row_values(1):
+    headers_actuales = worksheet.row_values(1)
+
+    if not headers_actuales:
         worksheet.append_row(INTERESADOS_HEADERS)
+    elif headers_actuales != INTERESADOS_HEADERS:
+        headers_actualizados = headers_actuales[:]
 
-    worksheet.append_row(row)
+        for header in INTERESADOS_HEADERS:
+            if header not in headers_actualizados:
+                headers_actualizados.append(header)
 
-    print("Interesado guardado en Google Sheets")
+        worksheet.update('1:1', [headers_actualizados])
+
+    return worksheet, gspread
 
 def enviar_email_interesado(fecha, nombre, telefono, email, propiedad, mensaje):
 
@@ -318,6 +335,7 @@ def guardar_interesado():
     propiedad = request.form.get('propiedad', '').strip()
     mensaje = request.form.get('mensaje', '').strip()
     estado = 'Nuevo'
+    fecha_seguimiento = ''
 
     row = [
         fecha,
@@ -326,7 +344,8 @@ def guardar_interesado():
         email,
         propiedad,
         mensaje,
-        estado
+        estado,
+        fecha_seguimiento
     ]
 
     try:
@@ -362,6 +381,87 @@ def guardar_interesado():
             "No pudimos guardar tu consulta.",
             "Por favor escribinos por WhatsApp."
         ), 500
+
+@app.route('/admin/interesados')
+def admin_interesados():
+
+    try:
+        import html
+
+        worksheet, gspread = obtener_interesados_worksheet()
+        rows = worksheet.get_all_records()
+
+        table_rows = ""
+
+        for interesado in rows:
+            nombre = html.escape(str(interesado.get('nombre', '')))
+            propiedad = html.escape(str(interesado.get('propiedad', '')))
+            estado = html.escape(str(interesado.get('estado', '')))
+            fecha = html.escape(str(interesado.get('fecha', '')))
+
+            table_rows += f"""
+            <tr>
+                <td>{nombre}</td>
+                <td>{propiedad}</td>
+                <td>{estado}</td>
+                <td>{fecha}</td>
+            </tr>
+            """
+
+        return f'''
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Interesados</title>
+            <style>
+                body{{
+                    margin:0;
+                    font-family:Arial;
+                    background:#f4f4f1;
+                    color:#111;
+                    padding:40px;
+                }}
+                table{{
+                    width:100%;
+                    border-collapse:collapse;
+                    background:white;
+                }}
+                th,
+                td{{
+                    padding:14px;
+                    border-bottom:1px solid #ddd;
+                    text-align:left;
+                }}
+                th{{
+                    background:#111;
+                    color:white;
+                }}
+            </style>
+        </head>
+        <body>
+            <h1>Interesados</h1>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Propiedad</th>
+                        <th>Estado</th>
+                        <th>Fecha</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {table_rows}
+                </tbody>
+            </table>
+        </body>
+        </html>
+        '''
+
+    except Exception as e:
+        print(f"Error admin interesados: {e}")
+        return "No se pudieron cargar los interesados.", 500
 
 # =========================
 # IA WEB
