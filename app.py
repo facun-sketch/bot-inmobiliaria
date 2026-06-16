@@ -1,5 +1,5 @@
 
-from flask import Flask, request, jsonify, send_from_directory, send_file
+from flask import Flask, request, jsonify, send_from_directory, send_file, render_template
 from flask_cors import CORS
 from openai import OpenAI
 from twilio.twiml.messaging_response import MessagingResponse
@@ -23,6 +23,10 @@ print("FLASK LISTO")
 @app.route("/index.html")
 def home():
     return send_from_directory(".", "index.html")
+
+@app.route("/demo")
+def demo():
+    return render_template("demo.html")
 
 @app.route("/health")
 def health():

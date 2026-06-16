@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Demo | Sistema Web Inmobiliario Systems Tower</title>
+  <!-- Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-NL8CRMKR3Q"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-NL8CRMKR3Q');
+  </script>
+  <!-- Meta Pixel Code -->
+  <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '1446376510598751');
+    fbq('track', 'PageView');
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=1446376510598751&ev=PageView&noscript=1"
+  /></noscript>
+  <!-- End Meta Pixel Code -->
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:Inter,Arial,sans-serif;background:#f6f3ec;color:#111827;line-height:1.5}
+    a{text-decoration:none;color:inherit}
+    header{position:sticky;top:0;z-index:30;background:rgba(246,243,236,.9);backdrop-filter:blur(14px);border-bottom:1px solid rgba(17,24,39,.1)}
+    .nav{max-width:1180px;margin:0 auto;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+    .brand{font-weight:900;letter-spacing:.2px}
+    .brand span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:1.8px;color:#6b7280;margin-top:2px}
+    nav{display:flex;align-items:center;gap:18px;color:#374151;font-size:14px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid #111827;border-radius:8px;padding:12px 18px;font-weight:800;background:#111827;color:white;cursor:pointer;transition:.2s;font-family:inherit}
+    .btn:hover{transform:translateY(-1px);box-shadow:0 14px 28px rgba(17,24,39,.15)}
+    .btn.secondary{background:white;color:#111827}
+    .hero{min-height:86vh;background:linear-gradient(135deg,rgba(17,24,39,.9),rgba(17,24,39,.72)),url("assets/villa-aurelia/portada.jpg") center/cover;display:grid;align-items:end;color:white}
+    .hero-inner{max-width:1180px;width:100%;margin:0 auto;padding:110px 24px 64px;display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:end}
+    .eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:2px;font-weight:900;color:#facc15;margin-bottom:16px}
+    h1{font-family:Georgia,serif;font-size:clamp(42px,7vw,82px);line-height:.98;font-weight:400;max-width:820px}
+    .hero p{font-size:18px;color:#e5e7eb;max-width:650px;margin:24px 0 30px}
+    .hero-actions{display:flex;gap:12px;flex-wrap:wrap}
+    .hero-panel{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);border-radius:8px;padding:24px;backdrop-filter:blur(16px)}
+    .hero-panel h2{font-size:18px;margin-bottom:18px}
+    .metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .metric{background:rgba(255,255,255,.1);border-radius:8px;padding:14px}
+    .metric strong{display:block;font-size:24px}
+    .metric span{font-size:13px;color:#d1d5db}
+    section{padding:82px 24px}
+    .wrap{max-width:1180px;margin:0 auto}
+    .section-head{display:flex;justify-content:space-between;gap:28px;align-items:end;margin-bottom:34px}
+    .section-head h2{font-family:Georgia,serif;font-size:clamp(32px,4vw,54px);line-height:1;font-weight:400;max-width:760px}
+    .section-head p{max-width:430px;color:#4b5563}
+    .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+    .card{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:24px;box-shadow:0 18px 40px rgba(17,24,39,.06)}
+    .card h3{font-size:20px;margin-bottom:10px}
+    .card p,.card li{color:#4b5563}
+    .card ul{padding-left:18px;margin-top:10px}
+    .band{background:#111827;color:white}
+    .band .section-head p,.band .card p,.band .card li{color:#d1d5db}
+    .band .card{background:#1f2937;border-color:#374151}
+    .feature-list{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    .feature{display:flex;gap:12px;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:18px}
+    .feature b{display:flex;align-items:center;justify-content:center;width:32px;height:32px;flex:0 0 32px;border-radius:8px;background:#facc15;color:#111827}
+    .feature h3{font-size:17px;margin-bottom:3px}
+    .feature p{font-size:14px;color:#4b5563}
+    .screens{display:grid;grid-template-columns:1.15fr .85fr;gap:22px;align-items:start}
+    .screen{background:#fff;border:1px solid #d1d5db;border-radius:8px;overflow:hidden;box-shadow:0 24px 50px rgba(17,24,39,.1)}
+    .screen-top{display:flex;align-items:center;gap:7px;padding:12px 14px;background:#f3f4f6;border-bottom:1px solid #e5e7eb}
+    .dot{width:10px;height:10px;border-radius:50%;background:#ef4444}
+    .dot:nth-child(2){background:#f59e0b}
+    .dot:nth-child(3){background:#10b981}
+    .screen-title{margin-left:8px;font-size:13px;font-weight:800;color:#374151}
+    .table-wrap{overflow:auto}
+    table{width:100%;border-collapse:collapse;min-width:760px;background:white}
+    th,td{padding:13px 14px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14px;vertical-align:top}
+    th{background:#111827;color:white;font-size:12px;text-transform:uppercase;letter-spacing:.7px}
+    .status{display:inline-flex;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:900;background:#eef2ff;color:#3730a3;white-space:nowrap}
+    .status.contactado{background:#ecfeff;color:#155e75}
+    .status.visita{background:#fef3c7;color:#92400e}
+    .status.cerrado{background:#dcfce7;color:#166534}
+    .sheet-grid{display:grid;grid-template-columns:repeat(8,minmax(120px,1fr));font-size:12px;min-width:900px}
+    .cell{border-right:1px solid #e5e7eb;border-bottom:1px solid #e5e7eb;padding:10px;background:#fff;min-height:39px}
+    .cell.head{background:#f9fafb;font-weight:900;color:#374151}
+    .pipeline{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px}
+    .step{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:18px}
+    .step strong{display:block;font-size:18px;margin-bottom:6px}
+    .contact{display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;align-items:start}
+    form{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:24px;box-shadow:0 18px 40px rgba(17,24,39,.06)}
+    label{display:block;font-size:13px;font-weight:900;margin-bottom:7px;color:#374151}
+    input,textarea{width:100%;border:1px solid #d1d5db;border-radius:8px;padding:13px 14px;font:inherit;margin-bottom:14px;background:#fff}
+    textarea{min-height:120px;resize:vertical}
+    footer{padding:34px 24px;background:#0b1020;color:#cbd5e1}
+    .footer-inner{max-width:1180px;margin:0 auto;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    @media(max-width:920px){
+      nav{display:none}
+      .hero-inner,.screens,.contact{grid-template-columns:1fr}
+      .hero{min-height:auto}
+      .hero-inner{padding-top:86px}
+      .section-head{display:block}
+      .section-head p{margin-top:14px}
+      .grid-3,.feature-list,.pipeline{grid-template-columns:1fr}
+      .metric-grid{grid-template-columns:1fr 1fr}
+    }
+    @media(max-width:560px){
+      .nav{padding:14px 16px}
+      section{padding:58px 16px}
+      .hero-inner{padding:76px 16px 42px}
+      .metric-grid{grid-template-columns:1fr}
+      .btn{width:100%}
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav">
+      <a class="brand" href="/demo">Systems Tower<span>Sistema Web Inmobiliario</span></a>
+      <nav>
+        <a href="#problema">Problema</a>
+        <a href="#funciones">Funciones</a>
+        <a href="#crm">CRM</a>
+        <a href="#contacto">Contacto</a>
+      </nav>
+      <a class="btn" href="#contacto">Solicitar demo</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-inner">
+        <div>
+          <div class="eyebrow">Demo profesional para inmobiliarias</div>
+          <h1>Sistema web para captar, ordenar y seguir interesados inmobiliarios.</h1>
+          <p>Una web inmobiliaria conectada con formulario de captura, Google Sheets, CRM de interesados, emails automaticos, WhatsApp, Google Analytics y Meta Pixel.</p>
+          <div class="hero-actions">
+            <a class="btn" href="#contacto">Solicitar demostracion</a>
+            <a class="btn secondary" href="#crm">Ver CRM integrado</a>
+          </div>
+        </div>
+        <aside class="hero-panel">
+          <h2>Flujo implementado en el sistema</h2>
+          <div class="metric-grid">
+            <div class="metric"><strong>1</strong><span>Web inmobiliaria publica</span></div>
+            <div class="metric"><strong>2</strong><span>Formulario de interesados</span></div>
+            <div class="metric"><strong>3</strong><span>Google Sheets + email</span></div>
+            <div class="metric"><strong>4</strong><span>CRM con estados</span></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="problema">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>El problema que resuelve.</h2>
+          <p>Las consultas llegan desde distintos canales y se pierden cuando no hay registro, seguimiento ni una vista simple del estado comercial.</p>
+        </div>
+        <div class="grid-3">
+          <article class="card">
+            <h3>Consultas dispersas</h3>
+            <p>Los interesados escriben por la web o WhatsApp, pero el equipo necesita una forma ordenada de registrar cada contacto.</p>
+          </article>
+          <article class="card">
+            <h3>Seguimiento manual</h3>
+            <p>Sin estados claros es dificil saber quien es nuevo, quien fue contactado, quien tiene visita agendada y quien ya cerro.</p>
+          </article>
+          <article class="card">
+            <h3>Medicion incompleta</h3>
+            <p>Google Analytics y Meta Pixel ayudan a entender el trafico y las acciones de marketing sobre la web inmobiliaria.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="band" id="funciones">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Funciones actuales del sistema.</h2>
+          <p>Esta pagina muestra solamente funcionalidades que ya estan implementadas en la aplicacion.</p>
+        </div>
+        <div class="grid-3">
+          <article class="card">
+            <h3>Web inmobiliaria</h3>
+            <p>Pagina publica de propiedades con detalle, galeria, llamados a WhatsApp y medicion con Analytics y Meta Pixel.</p>
+          </article>
+          <article class="card">
+            <h3>Captura de interesados</h3>
+            <p>Formulario conectado a <strong>/guardar-interesado</strong> para registrar nombre, telefono, email, propiedad y mensaje.</p>
+          </article>
+          <article class="card">
+            <h3>Google Sheets</h3>
+            <p>Los interesados se guardan en la hoja configurada y se crea respaldo local si la integracion no responde.</p>
+          </article>
+          <article class="card">
+            <h3>CRM de interesados</h3>
+            <p>Panel <strong>/admin/interesados</strong> con listado de contactos y botones para actualizar estados comerciales.</p>
+          </article>
+          <article class="card">
+            <h3>Emails automaticos</h3>
+            <p>Cuando entra un interesado, el sistema intenta enviar una notificacion por email usando la configuracion SMTP existente.</p>
+          </article>
+          <article class="card">
+            <h3>WhatsApp</h3>
+            <p>La web incluye enlaces directos a WhatsApp y el sistema cuenta con endpoint de mensajes para conversaciones entrantes.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Beneficios para inmobiliarias.</h2>
+          <p>Menos perdida de oportunidades, mas claridad comercial y una base ordenada de contactos para seguimiento.</p>
+        </div>
+        <div class="feature-list">
+          <div class="feature"><b>01</b><div><h3>Centraliza interesados</h3><p>Cada consulta queda registrada con datos basicos y propiedad consultada.</p></div></div>
+          <div class="feature"><b>02</b><div><h3>Acelera respuestas</h3><p>El equipo puede revisar el CRM y continuar por telefono, email o WhatsApp.</p></div></div>
+          <div class="feature"><b>03</b><div><h3>Ordena el seguimiento</h3><p>Los estados permiten priorizar oportunidades segun avance comercial.</p></div></div>
+          <div class="feature"><b>04</b><div><h3>Mide acciones digitales</h3><p>Analytics y Meta Pixel quedan activos en la web para evaluar trafico y campanas.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="crm">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>CRM integrado y Google Sheets.</h2>
+          <p>Ejemplos visuales basados en los campos reales que usa el sistema para interesados.</p>
+        </div>
+        <div class="screens">
+          <article class="screen">
+            <div class="screen-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="screen-title">/admin/interesados</span></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Telefono</th>
+                    <th>Email</th>
+                    <th>Propiedad</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Interesado web</td>
+                    <td>0981 000 000</td>
+                    <td>cliente@email.com</td>
+                    <td>Altea del Sol</td>
+                    <td><span class="status">Nuevo</span></td>
+                    <td>2026-06-05 15:18:52</td>
+                  </tr>
+                  <tr>
+                    <td>Consulta WhatsApp</td>
+                    <td>0971 000 000</td>
+                    <td>contacto@email.com</td>
+                    <td>Villa Aurelia</td>
+                    <td><span class="status contactado">Contactado</span></td>
+                    <td>2026-06-06 10:24:11</td>
+                  </tr>
+                  <tr>
+                    <td>Visita pendiente</td>
+                    <td>0992 000 000</td>
+                    <td>agenda@email.com</td>
+                    <td>Edificio Bernardino</td>
+                    <td><span class="status visita">Visita agendada</span></td>
+                    <td>2026-06-07 09:40:03</td>
+                  </tr>
+                  <tr>
+                    <td>Operacion cerrada</td>
+                    <td>0983 000 000</td>
+                    <td>cierre@email.com</td>
+                    <td>Aqua Village</td>
+                    <td><span class="status cerrado">Cerrado</span></td>
+                    <td>2026-06-08 17:05:29</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+          <article class="screen">
+            <div class="screen-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="screen-title">Google Sheets · Interesados</span></div>
+            <div class="table-wrap">
+              <div class="sheet-grid">
+                <div class="cell head">fecha</div>
+                <div class="cell head">nombre</div>
+                <div class="cell head">telefono</div>
+                <div class="cell head">email</div>
+                <div class="cell head">propiedad</div>
+                <div class="cell head">mensaje</div>
+                <div class="cell head">estado</div>
+                <div class="cell head">fecha_seguimiento</div>
+                <div class="cell">2026-06-05 15:18:52</div>
+                <div class="cell">Interesado web</div>
+                <div class="cell">0981 000 000</div>
+                <div class="cell">cliente@email.com</div>
+                <div class="cell">Altea del Sol</div>
+                <div class="cell">Quiero mas informacion.</div>
+                <div class="cell">Nuevo</div>
+                <div class="cell"></div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Seguimiento comercial.</h2>
+          <p>El CRM usa los estados existentes para ordenar el avance de cada interesado.</p>
+        </div>
+        <div class="pipeline">
+          <div class="step"><strong>Nuevo</strong><p>Consulta recibida desde el formulario y guardada en la hoja.</p></div>
+          <div class="step"><strong>Contactado</strong><p>El equipo ya inicio el contacto con el interesado.</p></div>
+          <div class="step"><strong>Visita agendada</strong><p>El interesado tiene una visita coordinada.</p></div>
+          <div class="step"><strong>Cerrado</strong><p>La oportunidad fue cerrada desde el seguimiento comercial.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="contacto" class="band">
+      <div class="wrap contact">
+        <div>
+          <div class="eyebrow">Solicitar demostracion</div>
+          <h2>Conoce como funcionaria el sistema para tu inmobiliaria.</h2>
+          <p style="color:#d1d5db;margin-top:18px;max-width:520px">Este formulario usa la captura de interesados ya implementada. La solicitud entra como estado <strong>Nuevo</strong>, se guarda en Google Sheets y puede verse en el CRM.</p>
+        </div>
+        <form action="/guardar-interesado" method="POST">
+          <label for="nombre">Nombre</label>
+          <input id="nombre" name="nombre" type="text" placeholder="Nombre y apellido" required>
+
+          <label for="telefono">Telefono</label>
+          <input id="telefono" name="telefono" type="tel" placeholder="0981 000 000" required>
+
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" placeholder="nombre@email.com">
+
+          <label for="propiedad">Interes</label>
+          <input id="propiedad" name="propiedad" type="text" value="Demo Sistema Web Inmobiliario" readonly>
+
+          <label for="mensaje">Mensaje</label>
+          <textarea id="mensaje" name="mensaje" placeholder="Quiero solicitar una demostracion del sistema." required></textarea>
+
+          <button class="btn" type="submit">Enviar solicitud</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <strong>Systems Tower · Sistema Web Inmobiliario</strong>
+      <span>Web inmobiliaria · CRM · Google Sheets · Email · WhatsApp · Analytics · Meta Pixel</span>
+    </div>
+  </footer>
+</body>
+</html>
