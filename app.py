@@ -72,6 +72,27 @@ def altea_hub():
 def detalle_duplex_shopping_sol():
     return send_from_directory(".", "detalle-duplex-shopping-sol.html")
 
+@app.route("/detalle-residencia-barrio-las-mercedes.html")
+def detalle_residencia_barrio_las_mercedes():
+    return send_from_directory(".", "detalle-residencia-barrio-las-mercedes.html")
+
+@app.route("/detalle-departamento-torre-augusta.html")
+def detalle_departamento_torre_augusta():
+    return send_from_directory(".", "detalle-departamento-torre-augusta.html")
+
+@app.route("/detalle-inversion-luque-aregua.html")
+def detalle_inversion_luque_aregua():
+    return send_from_directory(".", "detalle-inversion-luque-aregua.html")
+
+@app.route("/detalle-terreno-zona-terminal.html")
+def detalle_terreno_zona_terminal():
+    return send_from_directory(".", "detalle-terreno-zona-terminal.html")
+
+@app.route("/detalle-terreno-barrio-mburucuya.html")
+def detalle_terreno_barrio_mburucuya():
+    return send_from_directory(".", "detalle-terreno-barrio-mburucuya.html")
+
+
 # =========================
 # ARCHIVOS
 # =========================

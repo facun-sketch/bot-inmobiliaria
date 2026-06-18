@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Residencia - Barrio Las Mercedes</title>
+
+<style>
+
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+}
+
+body{
+font-family:Arial,sans-serif;
+background:#f5f5f3;
+color:#111;
+line-height:1.5;
+}
+
+header{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+padding:20px 7%;
+background:rgba(255,255,255,.85);
+backdrop-filter:blur(12px);
+display:flex;
+justify-content:space-between;
+align-items:center;
+z-index:100;
+border-bottom:1px solid #ddd;
+}
+
+header a{
+text-decoration:none;
+color:#111;
+font-weight:bold;
+}
+
+.hero{
+height:85vh;
+position:relative;
+overflow:hidden;
+display:flex;
+align-items:end;
+padding:60px;
+color:white;
+background:url('imagenes/residencia-barrio-las-mercedes/foto1.jpg') center/cover;
+}
+
+.hero video{
+position:absolute;
+inset:0;
+width:100%;
+height:100%;
+object-fit:cover;
+}
+
+.overlay{
+position:absolute;
+inset:0;
+background:linear-gradient(to top,rgba(0,0,0,.75),transparent 50%);
+}
+
+.hero-content{
+position:relative;
+z-index:2;
+max-width:700px;
+}
+
+.hero-content h1{
+font-size:72px;
+margin-bottom:10px;
+}
+
+.price{
+font-size:42px;
+font-weight:bold;
+margin-top:18px;
+}
+
+.content{
+padding:80px 7%;
+}
+
+.description{
+background:white;
+padding:40px;
+border-radius:30px;
+box-shadow:0 20px 50px rgba(0,0,0,.08);
+margin-bottom:40px;
+}
+
+.features{
+display:flex;
+flex-wrap:wrap;
+gap:12px;
+margin:25px 0;
+}
+
+.features span{
+background:#f4f4f4;
+border:1px solid #ddd;
+padding:10px 16px;
+border-radius:999px;
+font-size:14px;
+font-weight:600;
+}
+
+.gallery{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+gap:18px;
+margin-top:40px;
+}
+
+.gallery img{
+width:100%;
+height:260px;
+object-fit:cover;
+border-radius:24px;
+transition:.3s;
+cursor:pointer;
+}
+
+.gallery img:hover{
+transform:scale(1.03);
+}
+
+.map{
+margin-top:40px;
+}
+
+.map a{
+display:inline-flex;
+padding:14px 22px;
+background:#111;
+color:white;
+border-radius:999px;
+text-decoration:none;
+font-weight:bold;
+}
+
+.whatsapp{
+position:fixed;
+right:20px;
+bottom:20px;
+background:#111;
+color:white;
+padding:18px 24px;
+border-radius:999px;
+text-decoration:none;
+font-weight:bold;
+z-index:100;
+box-shadow:0 10px 30px rgba(0,0,0,.2);
+}
+
+.inquiry-card{
+background:white;
+padding:40px;
+border-radius:30px;
+box-shadow:0 20px 50px rgba(0,0,0,.08);
+margin-top:40px;
+}
+
+.inquiry-form{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:16px;
+margin-top:20px;
+}
+
+.inquiry-form label{
+display:flex;
+flex-direction:column;
+gap:8px;
+font-weight:bold;
+font-size:14px;
+}
+
+.inquiry-form input,
+.inquiry-form textarea{
+width:100%;
+border:1px solid #ddd;
+border-radius:14px;
+padding:14px;
+font-family:Arial;
+font-size:15px;
+}
+
+.inquiry-form textarea{
+min-height:120px;
+resize:vertical;
+}
+
+.inquiry-form .full{
+grid-column:1/-1;
+}
+
+.inquiry-form .btn,
+.inquiry-actions .btn{
+display:inline-block;
+padding:14px 28px;
+border-radius:999px;
+background:#111;
+color:white;
+text-decoration:none;
+border:none;
+cursor:pointer;
+font-size:16px;
+font-family:Arial;
+font-weight:bold;
+}
+
+.inquiry-actions{
+display:flex;
+flex-wrap:wrap;
+gap:12px;
+margin-top:20px;
+}
+
+.inquiry-actions .btn-light{
+background:#f1f1f1;
+color:#111;
+}
+
+@media(max-width:900px){
+
+.hero{
+height:75vh;
+padding:35px;
+}
+
+.hero-content h1{
+font-size:42px;
+}
+
+.price{
+font-size:30px;
+}
+
+.content{
+padding:50px 5%;
+}
+
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+<a href="index.html">← Volver</a>
+<a href="https://wa.me/595981466040" target="_blank">WhatsApp</a>
+</header>
+
+<section class="hero">
+
+<div class="overlay"></div>
+
+<div class="hero-content">
+<h1>Residencia - Barrio Las Mercedes</h1>
+<p>En Venta Residencia - Barrio Las Mercedes</p>
+<div class="price">USD 360.000</div>
+</div>
+
+</section>
+
+<section class="content">
+
+<div class="description">
+<h2>Descripción</h2>
+<p>
+En Venta Residencia - Barrio Las Mercedes 🏡
+</p>
+
+<p>
+📍Ubicada sobre Tte. Morales c/ Tte Marcos Núñez. Con cercanía a supermercados, colegios privados, hospitales y a 15 minutos del eje corporativo.
+</p>
+
+<p>
+Sup. Terreno: 592 m2<br>
+Sup. Construccion: 513
+</p>
+
+<p>
+Planta baja<br>
+-Estacionamiento para 4 vehículos<br>
+-Comedor<br>
+-Area de servicio completa<br>
+-Cocina<br>
+-Quincho con parrilla<br>
+-Patio<br>
+-Piscina<br>
+-Sala de juegos, bar, baño.
+</p>
+
+<p>
+Planta alta:<br>
+-Living / comedor<br>
+-Ante sala<br>
+-Baño social<br>
+-Escritorio<br>
+-1 habitación / estar íntimo / sala de juegos
+</p>
+
+<p>
+3ra planta:<br>
+-2 habitaciones con baño familiar<br>
+-1 habitación en suite con vestidor
+</p>
+
+<p>
+💰Precio: 360.000 Usd.
+</p>
+
+<div class="features">
+<span>592 m² terreno</span>
+<span>513 m² construidos</span>
+<span>Piscina</span>
+<span>Quincho</span>
+<span>4 vehículos</span>
+<span>Suite con vestidor</span>
+</div>
+
+
+</div>
+
+<h2>Galería</h2>
+
+<div class="gallery">
+<img src="imagenes/residencia-barrio-las-mercedes/foto1.jpg">
+<img src="imagenes/residencia-barrio-las-mercedes/foto2.jpg">
+<img src="imagenes/residencia-barrio-las-mercedes/foto3.jpg">
+<img src="imagenes/residencia-barrio-las-mercedes/foto4.jpg">
+<img src="imagenes/residencia-barrio-las-mercedes/foto5.jpg">
+<img src="imagenes/residencia-barrio-las-mercedes/foto6.jpg">
+<img src="imagenes/residencia-barrio-las-mercedes/foto7.jpg">
+<img src="imagenes/residencia-barrio-las-mercedes/foto8.jpg">
+<img src="imagenes/residencia-barrio-las-mercedes/foto9.jpg">
+</div>
+
+</section>
+
+<section class="content">
+
+<div class="inquiry-card">
+
+<h2>Estoy interesado</h2>
+
+<form class="inquiry-form" action="/guardar-interesado" method="POST">
+<input type="hidden" name="propiedad" value="Residencia - Barrio Las Mercedes">
+
+<label>Nombre<input type="text" name="nombre" required></label>
+<label>Teléfono<input type="tel" name="telefono" required></label>
+<label>Email<input type="email" name="email"></label>
+<label class="full">Mensaje<textarea name="mensaje" required>Hola, quiero más información sobre Residencia - Barrio Las Mercedes.</textarea></label>
+
+<button class="btn" type="submit">Enviar consulta</button>
+</form>
+
+<div class="inquiry-actions">
+<a class="btn" href="https://wa.me/595981466040?text=Hola, quiero más información sobre Residencia - Barrio Las Mercedes" target="_blank">WhatsApp</a>
+<a class="btn btn-light" href="https://wa.me/595981466040?text=Hola, quiero agendar una visita para Residencia - Barrio Las Mercedes" target="_blank">Agendar visita</a>
+</div>
+
+</div>
+
+</section>
+
+<a class="whatsapp"
+href="https://wa.me/595981466040?text=Hola, quiero más información sobre Residencia - Barrio Las Mercedes"
+target="_blank">
+WhatsApp
+</a>
+
+</body>
+</html>
