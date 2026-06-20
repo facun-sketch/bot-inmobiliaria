@@ -183,7 +183,8 @@ INTERESADOS_HEADERS = [
     'propiedad',
     'mensaje',
     'estado',
-    'fecha_seguimiento'
+    'fecha_seguimiento',
+    'fuente'
 ]
 
 ESTADOS_INTERESADO = [
@@ -192,6 +193,182 @@ ESTADOS_INTERESADO = [
     'Visita agendada',
     'Cerrado'
 ]
+
+ESTADOS_LEAD = [
+    'Nuevo',
+    'Contactado',
+    'Visita agendada',
+    'Negociación',
+    'Cerrado'
+]
+
+FUENTES_LEAD = [
+    'Web',
+    'InfoCasas',
+    'Marketplace',
+    'WhatsApp',
+    'Manual'
+]
+
+def columna_a_letra(numero):
+
+    letras = ''
+
+    while numero:
+        numero, resto = divmod(numero - 1, 26)
+        letras = chr(65 + resto) + letras
+
+    return letras
+
+def asegurar_columnas_interesados(worksheet, total_columnas):
+
+    columnas_actuales = getattr(worksheet, 'col_count', 0) or 0
+
+    if columnas_actuales < total_columnas:
+        worksheet.resize(cols=total_columnas)
+
+def asegurar_headers_interesados(worksheet):
+
+    headers_actuales = worksheet.row_values(1)
+
+    if not headers_actuales:
+        asegurar_columnas_interesados(worksheet, len(INTERESADOS_HEADERS))
+        worksheet.append_row(INTERESADOS_HEADERS)
+        return INTERESADOS_HEADERS[:]
+
+    headers_actualizados = headers_actuales[:]
+
+    for header in INTERESADOS_HEADERS:
+        if header not in headers_actualizados:
+            headers_actualizados.append(header)
+
+    if headers_actualizados != headers_actuales:
+        asegurar_columnas_interesados(worksheet, len(headers_actualizados))
+        ultima_columna = columna_a_letra(len(headers_actualizados))
+        worksheet.update(f'A1:{ultima_columna}1', [headers_actualizados])
+
+    return headers_actualizados
+
+def lead_desde_fila(headers, row):
+
+    lead = {
+        header: row[pos] if pos < len(row) else ''
+        for pos, header in enumerate(headers)
+    }
+
+    if 'fuente' not in lead or not lead.get('fuente'):
+        lead['fuente'] = 'Web'
+
+    if 'fecha_seguimiento' not in lead:
+        lead['fecha_seguimiento'] = ''
+
+    for header in INTERESADOS_HEADERS:
+        if header not in lead:
+            lead[header] = ''
+
+    return lead
+
+def google_sheets_configurado():
+
+    return bool(
+        os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
+        and os.getenv('GOOGLE_SHEET_ID')
+    )
+
+def normalizar_fila_interesado(headers, row):
+
+    lead = lead_desde_fila(headers, row)
+
+    return [
+        lead.get(header, '')
+        for header in INTERESADOS_HEADERS
+    ]
+
+def leer_interesados_csv():
+
+    archivo = 'interesados.csv'
+
+    if not os.path.exists(archivo) or os.path.getsize(archivo) == 0:
+        return INTERESADOS_HEADERS[:], []
+
+    with open(archivo, mode='r', newline='', encoding='utf-8') as file:
+        reader = csv.reader(file)
+        contenido = list(reader)
+
+    if not contenido:
+        return INTERESADOS_HEADERS[:], []
+
+    headers = contenido[0] or INTERESADOS_HEADERS[:]
+    filas = [
+        normalizar_fila_interesado(headers, row)
+        for row in contenido[1:]
+        if any(str(cell).strip() for cell in row)
+    ]
+
+    return INTERESADOS_HEADERS[:], filas
+
+def escribir_interesados_csv(rows):
+
+    with open('interesados.csv', mode='w', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+        writer.writerow(INTERESADOS_HEADERS)
+        writer.writerows(rows)
+
+def guardar_interesado_csv(row):
+
+    headers, rows = leer_interesados_csv()
+    rows.append(normalizar_fila_interesado(INTERESADOS_HEADERS, row))
+    escribir_interesados_csv(rows)
+    print("Interesado guardado en interesados.csv")
+
+def obtener_interesados_datos():
+
+    if not google_sheets_configurado():
+        print("Google Sheets no configurado. Usando interesados.csv")
+        return leer_interesados_csv()
+
+    try:
+        worksheet, gspread = obtener_interesados_worksheet()
+        headers = asegurar_headers_interesados(worksheet)
+        values = worksheet.get_all_values()
+        rows = values[1:] if len(values) > 1 else []
+        return headers, rows
+    except Exception as e:
+        print(f"Error Google Sheets. Usando interesados.csv: {e}")
+        return leer_interesados_csv()
+
+def actualizar_estado_interesado_storage(row_number, nuevo_estado):
+
+    fecha_seguimiento = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    if google_sheets_configurado():
+        try:
+            worksheet, gspread = obtener_interesados_worksheet()
+            headers = asegurar_headers_interesados(worksheet)
+
+            estado_col = headers.index('estado') + 1
+            seguimiento_col = headers.index('fecha_seguimiento') + 1
+
+            worksheet.update_cell(row_number, estado_col, nuevo_estado)
+            worksheet.update_cell(row_number, seguimiento_col, fecha_seguimiento)
+            return
+        except Exception as e:
+            print(f"Error actualizando Google Sheets. Usando interesados.csv: {e}")
+
+    headers, rows = leer_interesados_csv()
+    row_index = row_number - 2
+
+    if row_index < 0 or row_index >= len(rows):
+        raise RuntimeError("Fila inválida")
+
+    lead = lead_desde_fila(headers, rows[row_index])
+    lead['estado'] = nuevo_estado
+    lead['fecha_seguimiento'] = fecha_seguimiento
+    rows[row_index] = [
+        lead.get(header, '')
+        for header in INTERESADOS_HEADERS
+    ]
+    escribir_interesados_csv(rows)
 
 def guardar_interesado_backup(row):
 
@@ -208,13 +385,22 @@ def guardar_interesado_backup(row):
 
 def guardar_interesado_google_sheets(row):
 
-    print("Intentando guardar interesado en Google Sheets")
+    if not google_sheets_configurado():
+        print("Google Sheets no configurado. Guardando interesado en interesados.csv")
+        guardar_interesado_csv(row)
+        return
 
-    worksheet, gspread = obtener_interesados_worksheet()
+    try:
+        print("Intentando guardar interesado en Google Sheets")
 
-    worksheet.append_row(row)
+        worksheet, gspread = obtener_interesados_worksheet()
 
-    print("Interesado guardado en Google Sheets")
+        worksheet.append_row(row)
+
+        print("Interesado guardado en Google Sheets")
+    except Exception as e:
+        print(f"Error Google Sheets. Guardando interesado en interesados.csv: {e}")
+        guardar_interesado_csv(row)
 
 def obtener_interesados_worksheet():
 
@@ -225,11 +411,8 @@ def obtener_interesados_worksheet():
     service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
     sheet_id = os.getenv('GOOGLE_SHEET_ID')
 
-    if not service_account_json:
-        raise RuntimeError("Falta GOOGLE_SERVICE_ACCOUNT_JSON")
-
-    if not sheet_id:
-        raise RuntimeError("Falta GOOGLE_SHEET_ID")
+    if not service_account_json or not sheet_id:
+        return None, None
 
     scopes = [
         'https://www.googleapis.com/auth/spreadsheets',
@@ -255,18 +438,7 @@ def obtener_interesados_worksheet():
             cols=len(INTERESADOS_HEADERS)
         )
 
-    headers_actuales = worksheet.row_values(1)
-
-    if not headers_actuales:
-        worksheet.append_row(INTERESADOS_HEADERS)
-    elif headers_actuales != INTERESADOS_HEADERS:
-        headers_actualizados = headers_actuales[:]
-
-        for header in INTERESADOS_HEADERS:
-            if header not in headers_actualizados:
-                headers_actualizados.append(header)
-
-        worksheet.update('1:1', [headers_actualizados])
+    asegurar_headers_interesados(worksheet)
 
     return worksheet, gspread
 
@@ -306,6 +478,274 @@ Mensaje: {mensaje}
         server.starttls()
         server.login(smtp_user, smtp_password)
         server.send_message(msg)
+
+# =========================
+# INFOCASAS HOTMAIL SYNC
+# =========================
+
+INFOCASAS_IMPORTADOS_CSV = 'infocasas_importados.csv'
+
+def microsoft_graph_configurado():
+
+    return all([
+        os.getenv('MS_CLIENT_ID'),
+        os.getenv('MS_CLIENT_SECRET'),
+        os.getenv('MS_TENANT_ID', 'consumers'),
+        os.getenv('MS_REDIRECT_URI'),
+        os.getenv('MS_REFRESH_TOKEN')
+    ])
+
+def obtener_ms_access_token():
+
+    import requests
+
+    tenant_id = os.getenv('MS_TENANT_ID', 'consumers')
+    token_url = f'https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token'
+
+    data = {
+        'client_id': os.getenv('MS_CLIENT_ID'),
+        'client_secret': os.getenv('MS_CLIENT_SECRET'),
+        'redirect_uri': os.getenv('MS_REDIRECT_URI'),
+        'refresh_token': os.getenv('MS_REFRESH_TOKEN'),
+        'grant_type': 'refresh_token',
+        'scope': 'https://graph.microsoft.com/Mail.Read offline_access'
+    }
+
+    response = requests.post(token_url, data=data, timeout=20)
+    response.raise_for_status()
+
+    token_data = response.json()
+    return token_data['access_token']
+
+def leer_ultimos_correos_graph(limit=20):
+
+    import requests
+
+    access_token = obtener_ms_access_token()
+    url = 'https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages'
+    params = {
+        '$top': limit,
+        '$orderby': 'receivedDateTime desc',
+        '$select': 'id,internetMessageId,subject,from,receivedDateTime,bodyPreview,body'
+    }
+    headers = {
+        'Authorization': f'Bearer {access_token}'
+    }
+
+    response = requests.get(url, headers=headers, params=params, timeout=20)
+    response.raise_for_status()
+
+    mensajes = response.json().get('value', [])
+    print(f"Correos leídos: {len(mensajes)}")
+    return mensajes
+
+def limpiar_html(texto):
+
+    import re
+    import html
+
+    texto = texto or ''
+    texto = re.sub(r'<br\s*/?>', '\n', texto, flags=re.I)
+    texto = re.sub(r'</p\s*>', '\n', texto, flags=re.I)
+    texto = re.sub(r'<[^>]+>', ' ', texto)
+    texto = html.unescape(texto)
+    texto = re.sub(r'[ \t]+', ' ', texto)
+    texto = re.sub(r'\n\s+', '\n', texto)
+    return texto.strip()
+
+def obtener_texto_correo(correo):
+
+    body = correo.get('body') or {}
+    body_content = body.get('content') or ''
+    body_preview = correo.get('bodyPreview') or ''
+    return limpiar_html(f'{body_preview}\n{body_content}')
+
+def es_correo_infocasas(correo):
+
+    remitente = correo.get('from') or {}
+    email_info = remitente.get('emailAddress') or {}
+    sender = f"{email_info.get('name', '')} {email_info.get('address', '')}".lower()
+    subject = (correo.get('subject') or '').lower()
+    body = obtener_texto_correo(correo).lower()
+
+    contenido = f'{sender} {subject} {body}'
+    return 'infocasas' in contenido
+
+def extraer_linea(texto, etiquetas):
+
+    import re
+
+    for etiqueta in etiquetas:
+        patron = rf'{etiqueta}\s*[:\-]\s*(.+)'
+        match = re.search(patron, texto, flags=re.I)
+
+        if match:
+            return match.group(1).strip()
+
+    return ''
+
+def extraer_lead_infocasas(correo):
+
+    import re
+
+    texto = obtener_texto_correo(correo)
+    subject = correo.get('subject') or ''
+    remitente = correo.get('from') or {}
+    email_info = remitente.get('emailAddress') or {}
+
+    nombre = extraer_linea(texto, [
+        'nombre',
+        'contacto',
+        'interesado',
+        'cliente'
+    ])
+
+    telefono = extraer_linea(texto, [
+        'teléfono',
+        'telefono',
+        'celular',
+        'móvil',
+        'movil',
+        'whatsapp'
+    ])
+
+    email = extraer_linea(texto, [
+        'email',
+        'e-mail',
+        'correo'
+    ])
+
+    propiedad = extraer_linea(texto, [
+        'propiedad',
+        'inmueble',
+        'publicación',
+        'publicacion',
+        'aviso'
+    ])
+
+    mensaje = extraer_linea(texto, [
+        'mensaje',
+        'consulta',
+        'comentario'
+    ])
+
+    if not telefono:
+        telefono_match = re.search(r'(\+?595[\s\-]?\d{6,10}|0\d{8,10})', texto)
+        telefono = telefono_match.group(1).strip() if telefono_match else ''
+
+    if not email:
+        email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', texto)
+        email = email_match.group(0).strip() if email_match else ''
+
+    if not nombre:
+        nombre = email_info.get('name', '').strip()
+
+    if not propiedad:
+        propiedad = subject.strip()
+
+    if not mensaje:
+        mensaje = texto[:1200]
+
+    return {
+        'message_id': correo.get('internetMessageId') or correo.get('id') or '',
+        'fecha': correo.get('receivedDateTime') or datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'nombre': nombre,
+        'telefono': telefono,
+        'email': email,
+        'propiedad': propiedad,
+        'mensaje': mensaje,
+        'fuente': 'InfoCasas',
+        'estado': 'Nuevo'
+    }
+
+def leer_infocasas_importados():
+
+    if not os.path.exists(INFOCASAS_IMPORTADOS_CSV):
+        return set()
+
+    with open(INFOCASAS_IMPORTADOS_CSV, mode='r', newline='', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        return {
+            row.get('message_id', '')
+            for row in reader
+            if row.get('message_id')
+        }
+
+def guardar_infocasas_importado(message_id):
+
+    crear_encabezado = (
+        not os.path.exists(INFOCASAS_IMPORTADOS_CSV)
+        or os.path.getsize(INFOCASAS_IMPORTADOS_CSV) == 0
+    )
+
+    with open(INFOCASAS_IMPORTADOS_CSV, mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
+
+        if crear_encabezado:
+            writer.writerow(['message_id', 'fecha_importacion'])
+
+        writer.writerow([
+            message_id,
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        ])
+
+def obtener_leads_infocasas_preview(limit=20):
+
+    correos = leer_ultimos_correos_graph(limit)
+    procesados = leer_infocasas_importados()
+    leads = []
+    duplicados = 0
+    detectados = 0
+
+    for correo in correos:
+        if not es_correo_infocasas(correo):
+            continue
+
+        detectados += 1
+        lead = extraer_lead_infocasas(correo)
+
+        if lead['message_id'] in procesados:
+            lead['duplicado'] = True
+            duplicados += 1
+        else:
+            lead['duplicado'] = False
+
+        leads.append(lead)
+
+    print(f"Correos detectados como InfoCasas: {detectados}")
+    print(f"Duplicados omitidos: {duplicados}")
+    return leads
+
+def importar_leads_infocasas(limit=20):
+
+    leads = obtener_leads_infocasas_preview(limit)
+    importados = 0
+    duplicados = 0
+
+    for lead in leads:
+        if lead.get('duplicado'):
+            duplicados += 1
+            continue
+
+        row = [
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            lead.get('nombre', ''),
+            lead.get('telefono', ''),
+            lead.get('email', ''),
+            lead.get('propiedad', ''),
+            lead.get('mensaje', ''),
+            'Nuevo',
+            '',
+            'InfoCasas'
+        ]
+
+        guardar_interesado_google_sheets(row)
+        guardar_infocasas_importado(lead.get('message_id', ''))
+        importados += 1
+
+    print(f"Leads importados: {importados}")
+    print(f"Duplicados omitidos: {duplicados}")
+    return leads, importados, duplicados
 
 def respuesta_interesado(titulo, mensaje):
 
@@ -368,6 +808,7 @@ def guardar_interesado():
     mensaje = request.form.get('mensaje', '').strip()
     estado = 'Nuevo'
     fecha_seguimiento = ''
+    fuente = 'Web'
 
     row = [
         fecha,
@@ -377,7 +818,8 @@ def guardar_interesado():
         propiedad,
         mensaje,
         estado,
-        fecha_seguimiento
+        fecha_seguimiento,
+        fuente
     ]
 
     try:
@@ -420,18 +862,12 @@ def admin_interesados():
     try:
         import html
 
-        worksheet, gspread = obtener_interesados_worksheet()
-        values = worksheet.get_all_values()
-        headers = values[0] if values else INTERESADOS_HEADERS
-        rows = values[1:] if len(values) > 1 else []
+        headers, rows = obtener_interesados_datos()
 
         table_rows = ""
 
         for index, row in enumerate(rows, start=2):
-            interesado = {
-                header: row[pos] if pos < len(row) else ''
-                for pos, header in enumerate(headers)
-            }
+            interesado = lead_desde_fila(headers, row)
 
             nombre = html.escape(str(interesado.get('nombre', '')))
             telefono = html.escape(str(interesado.get('telefono', '')))
@@ -609,15 +1045,7 @@ def actualizar_estado_interesado():
         if nuevo_estado not in ESTADOS_INTERESADO:
             raise RuntimeError("Estado inválido")
 
-        worksheet, gspread = obtener_interesados_worksheet()
-        headers = worksheet.row_values(1)
-
-        estado_col = headers.index('estado') + 1
-        seguimiento_col = headers.index('fecha_seguimiento') + 1
-        fecha_seguimiento = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-        worksheet.update_cell(row_number, estado_col, nuevo_estado)
-        worksheet.update_cell(row_number, seguimiento_col, fecha_seguimiento)
+        actualizar_estado_interesado_storage(row_number, nuevo_estado)
 
         return '''
         <!DOCTYPE html>
@@ -636,6 +1064,796 @@ def actualizar_estado_interesado():
     except Exception as e:
         print(f"Error actualizando estado interesado: {e}")
         return "No se pudo actualizar el estado.", 500
+
+@app.route('/admin/leads')
+def admin_leads():
+
+    try:
+        import html
+
+        headers, rows = obtener_interesados_datos()
+
+        table_rows = ""
+
+        for index, row in enumerate(rows, start=2):
+            lead = lead_desde_fila(headers, row)
+
+            fecha = html.escape(str(lead.get('fecha', '')))
+            nombre = html.escape(str(lead.get('nombre', '')))
+            telefono = html.escape(str(lead.get('telefono', '')))
+            email = html.escape(str(lead.get('email', '')))
+            propiedad = html.escape(str(lead.get('propiedad', '')))
+            mensaje = html.escape(str(lead.get('mensaje', '')))
+            fuente = html.escape(str(lead.get('fuente', '') or 'Web'))
+            estado_actual = str(lead.get('estado', '')) or 'Nuevo'
+            estado = html.escape(estado_actual)
+
+            botones_estado = ""
+
+            for estado_opcion in ESTADOS_LEAD:
+                estado_opcion_html = html.escape(estado_opcion)
+                activo = ' active' if estado_opcion == estado_actual else ''
+
+                botones_estado += f"""
+                <form action="/admin/leads/estado" method="POST">
+                    <input type="hidden" name="row" value="{index}">
+                    <input type="hidden" name="estado" value="{estado_opcion_html}">
+                    <button class="state-btn{activo}" type="submit">{estado_opcion_html}</button>
+                </form>
+                """
+
+            table_rows += f"""
+            <tr>
+                <td>{fecha}</td>
+                <td>{nombre}</td>
+                <td>{telefono}</td>
+                <td>{email}</td>
+                <td>{propiedad}</td>
+                <td class="message-cell">{mensaje}</td>
+                <td><span class="source">{fuente}</span></td>
+                <td>
+                    <strong class="status">{estado}</strong>
+                    <div class="state-actions">
+                        {botones_estado}
+                    </div>
+                </td>
+            </tr>
+            """
+
+        return f'''
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>CRM Leads</title>
+            <style>
+                body{{
+                    margin:0;
+                    font-family:Arial;
+                    background:#f4f4f1;
+                    color:#111;
+                    padding:32px;
+                }}
+                .page{{
+                    max-width:1280px;
+                    margin:0 auto;
+                }}
+                .top{{
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    gap:16px;
+                    margin-bottom:24px;
+                }}
+                .top p{{
+                    margin:6px 0 0;
+                    color:#555;
+                }}
+                .btn{{
+                    display:inline-block;
+                    border:0;
+                    background:#111;
+                    color:white;
+                    border-radius:999px;
+                    padding:12px 18px;
+                    text-decoration:none;
+                    font-size:14px;
+                }}
+                .table-wrap{{
+                    overflow-x:auto;
+                    background:white;
+                    border-radius:16px;
+                    box-shadow:0 10px 30px rgba(0,0,0,.08);
+                }}
+                table{{
+                    width:100%;
+                    border-collapse:collapse;
+                    min-width:1100px;
+                }}
+                th,
+                td{{
+                    padding:14px;
+                    border-bottom:1px solid #ddd;
+                    text-align:left;
+                    vertical-align:top;
+                    font-size:14px;
+                }}
+                th{{
+                    background:#111;
+                    color:white;
+                }}
+                .message-cell{{
+                    max-width:260px;
+                    line-height:1.4;
+                }}
+                .source{{
+                    display:inline-block;
+                    background:#f0f0f0;
+                    border-radius:999px;
+                    padding:6px 10px;
+                }}
+                .status{{
+                    display:inline-block;
+                    margin-bottom:10px;
+                }}
+                .state-actions{{
+                    display:flex;
+                    flex-wrap:wrap;
+                    gap:8px;
+                }}
+                .state-actions form{{
+                    margin:0;
+                }}
+                .state-btn{{
+                    border:1px solid #ddd;
+                    background:#f7f7f7;
+                    color:#111;
+                    border-radius:999px;
+                    padding:8px 12px;
+                    cursor:pointer;
+                    font-family:Arial;
+                    font-size:13px;
+                }}
+                .state-btn.active{{
+                    background:#111;
+                    border-color:#111;
+                    color:white;
+                }}
+                @media(max-width:700px){{
+                    body{{
+                        padding:18px;
+                    }}
+                    .top{{
+                        display:block;
+                    }}
+                    .btn{{
+                        margin-top:14px;
+                    }}
+                }}
+            </style>
+        </head>
+        <body>
+            <main class="page">
+                <div class="top">
+                    <div>
+                        <h1>CRM Leads</h1>
+                        <p>Leads unificados por fuente.</p>
+                    </div>
+                    <a class="btn" href="/admin/leads/nuevo">Cargar lead manual</a>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Nombre</th>
+                                <th>Teléfono</th>
+                                <th>Email</th>
+                                <th>Propiedad</th>
+                                <th>Mensaje</th>
+                                <th>Fuente</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {table_rows}
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </body>
+        </html>
+        '''
+
+    except Exception as e:
+        import html
+        import traceback
+
+        print(f"Error admin leads: {repr(e)}")
+        traceback.print_exc()
+
+        error = html.escape(str(e))
+
+        return f'''
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Error CRM Leads</title>
+            <style>
+                body{{
+                    margin:0;
+                    font-family:Arial;
+                    background:#f4f4f1;
+                    color:#111;
+                    padding:32px;
+                }}
+                .box{{
+                    max-width:760px;
+                    background:white;
+                    border-radius:16px;
+                    box-shadow:0 10px 30px rgba(0,0,0,.08);
+                    padding:24px;
+                }}
+                code{{
+                    display:block;
+                    white-space:pre-wrap;
+                    background:#f0f0f0;
+                    border-radius:10px;
+                    padding:14px;
+                    margin-top:12px;
+                }}
+                a{{
+                    display:inline-block;
+                    margin-top:18px;
+                    color:#111;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="box">
+                <h1>No se pudieron cargar los leads.</h1>
+                <p>Revisá la consola de Flask/Railway. El error real también es:</p>
+                <code>{error}</code>
+                <a href="/admin/leads/nuevo">Cargar lead manual</a>
+            </div>
+        </body>
+        </html>
+        ''', 500
+
+@app.route('/admin/leads/nuevo', methods=['GET', 'POST'])
+def admin_leads_nuevo():
+
+    import html
+
+    if request.method == 'POST':
+
+        try:
+            fecha = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            nombre = request.form.get('nombre', '').strip()
+            telefono = request.form.get('telefono', '').strip()
+            email = request.form.get('email', '').strip()
+            propiedad = request.form.get('propiedad', '').strip()
+            mensaje = request.form.get('mensaje', '').strip()
+            fuente = request.form.get('fuente', '').strip()
+            estado = request.form.get('estado', '').strip()
+            fecha_seguimiento = ''
+
+            if fuente not in FUENTES_LEAD:
+                raise RuntimeError("Fuente inválida")
+
+            if estado not in ESTADOS_LEAD:
+                raise RuntimeError("Estado inválido")
+
+            row = [
+                fecha,
+                nombre,
+                telefono,
+                email,
+                propiedad,
+                mensaje,
+                estado,
+                fecha_seguimiento,
+                fuente
+            ]
+
+            guardar_interesado_google_sheets(row)
+
+            return '''
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <meta http-equiv="refresh" content="0; url=/admin/leads">
+                <title>Lead guardado</title>
+            </head>
+            <body>
+                <a href="/admin/leads">Volver</a>
+            </body>
+            </html>
+            '''
+
+        except Exception as e:
+            import traceback
+
+            print(f"Error creando lead manual: {repr(e)}")
+            traceback.print_exc()
+            return "No se pudo guardar el lead manual.", 500
+
+    opciones_fuente = ""
+    for fuente in FUENTES_LEAD:
+        fuente_html = html.escape(fuente)
+        selected = ' selected' if fuente == 'InfoCasas' else ''
+        opciones_fuente += f'<option value="{fuente_html}"{selected}>{fuente_html}</option>'
+
+    opciones_estado = ""
+    for estado in ESTADOS_LEAD:
+        estado_html = html.escape(estado)
+        selected = ' selected' if estado == 'Nuevo' else ''
+        opciones_estado += f'<option value="{estado_html}"{selected}>{estado_html}</option>'
+
+    return f'''
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Nuevo Lead</title>
+        <style>
+            body{{
+                margin:0;
+                font-family:Arial;
+                background:#f4f4f1;
+                color:#111;
+                padding:32px;
+            }}
+            .page{{
+                max-width:760px;
+                margin:0 auto;
+            }}
+            .top{{
+                margin-bottom:24px;
+            }}
+            .top p{{
+                margin:6px 0 0;
+                color:#555;
+            }}
+            form{{
+                background:white;
+                border-radius:16px;
+                box-shadow:0 10px 30px rgba(0,0,0,.08);
+                padding:24px;
+            }}
+            label{{
+                display:block;
+                font-weight:bold;
+                margin:16px 0 8px;
+            }}
+            input,
+            select,
+            textarea{{
+                width:100%;
+                box-sizing:border-box;
+                border:1px solid #ddd;
+                border-radius:10px;
+                padding:12px;
+                font-family:Arial;
+                font-size:15px;
+            }}
+            textarea{{
+                min-height:120px;
+                resize:vertical;
+            }}
+            .actions{{
+                display:flex;
+                flex-wrap:wrap;
+                gap:12px;
+                margin-top:22px;
+            }}
+            .btn{{
+                border:0;
+                background:#111;
+                color:white;
+                border-radius:999px;
+                padding:12px 18px;
+                text-decoration:none;
+                cursor:pointer;
+                font-size:14px;
+            }}
+            .btn-light{{
+                background:#eee;
+                color:#111;
+            }}
+            @media(max-width:700px){{
+                body{{
+                    padding:18px;
+                }}
+                form{{
+                    padding:18px;
+                }}
+            }}
+        </style>
+    </head>
+    <body>
+        <main class="page">
+            <div class="top">
+                <h1>Nuevo lead</h1>
+                <p>Carga manual para InfoCasas, Marketplace, WhatsApp o contactos directos.</p>
+            </div>
+
+            <form action="/admin/leads/nuevo" method="POST">
+                <label for="nombre">Nombre</label>
+                <input id="nombre" name="nombre" type="text" required>
+
+                <label for="telefono">Teléfono</label>
+                <input id="telefono" name="telefono" type="text">
+
+                <label for="email">Email</label>
+                <input id="email" name="email" type="email">
+
+                <label for="propiedad">Propiedad</label>
+                <input id="propiedad" name="propiedad" type="text">
+
+                <label for="mensaje">Mensaje</label>
+                <textarea id="mensaje" name="mensaje"></textarea>
+
+                <label for="fuente">Fuente</label>
+                <select id="fuente" name="fuente">
+                    {opciones_fuente}
+                </select>
+
+                <label for="estado">Estado</label>
+                <select id="estado" name="estado">
+                    {opciones_estado}
+                </select>
+
+                <div class="actions">
+                    <button class="btn" type="submit">Guardar lead</button>
+                    <a class="btn btn-light" href="/admin/leads">Volver</a>
+                </div>
+            </form>
+        </main>
+    </body>
+    </html>
+    '''
+
+@app.route('/admin/leads/estado', methods=['POST'])
+def actualizar_estado_lead():
+
+    try:
+        row_number = int(request.form.get('row', '0'))
+        nuevo_estado = request.form.get('estado', '').strip()
+
+        if row_number < 2:
+            raise RuntimeError("Fila inválida")
+
+        if nuevo_estado not in ESTADOS_LEAD:
+            raise RuntimeError("Estado inválido")
+
+        actualizar_estado_interesado_storage(row_number, nuevo_estado)
+
+        return '''
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta http-equiv="refresh" content="0; url=/admin/leads">
+            <title>Estado actualizado</title>
+        </head>
+        <body>
+            <a href="/admin/leads">Volver</a>
+        </body>
+        </html>
+        '''
+
+    except Exception as e:
+        print(f"Error actualizando estado lead: {e}")
+        return "No se pudo actualizar el estado del lead.", 500
+
+@app.route('/admin/sync/infocasas', methods=['GET', 'POST'])
+def admin_sync_infocasas():
+
+    import html
+
+    if not microsoft_graph_configurado():
+        return '''
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Sync InfoCasas</title>
+            <style>
+                body{
+                    margin:0;
+                    font-family:Arial;
+                    background:#f4f4f1;
+                    color:#111;
+                    padding:32px;
+                }
+                .box{
+                    max-width:760px;
+                    background:white;
+                    border-radius:16px;
+                    box-shadow:0 10px 30px rgba(0,0,0,.08);
+                    padding:24px;
+                }
+                code{
+                    display:block;
+                    background:#f0f0f0;
+                    border-radius:10px;
+                    padding:12px;
+                    margin:12px 0;
+                    white-space:pre-wrap;
+                }
+                a{
+                    color:#111;
+                }
+            </style>
+        </head>
+        <body>
+            <main class="box">
+                <h1>Integración Hotmail no configurada</h1>
+                <p>Para sincronizar InfoCasas desde Hotmail/Outlook faltan estas variables:</p>
+                <code>MS_CLIENT_ID
+MS_CLIENT_SECRET
+MS_TENANT_ID=consumers
+MS_REDIRECT_URI
+MS_REFRESH_TOKEN</code>
+                <a href="/admin/leads">Volver al CRM</a>
+            </main>
+        </body>
+        </html>
+        '''
+
+    mensaje_resultado = ''
+
+    try:
+        if request.method == 'POST':
+            leads, importados, duplicados = importar_leads_infocasas(20)
+            mensaje_resultado = (
+                f'{importados} lead(s) importado(s). '
+                f'{duplicados} duplicado(s) omitido(s).'
+            )
+        else:
+            leads = obtener_leads_infocasas_preview(20)
+
+    except Exception as e:
+        import traceback
+
+        print(f"Error conexión InfoCasas/Hotmail: {repr(e)}")
+        traceback.print_exc()
+
+        error = html.escape(str(e))
+        return f'''
+        <!DOCTYPE html>
+        <html lang="es">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Error Sync InfoCasas</title>
+            <style>
+                body{{
+                    margin:0;
+                    font-family:Arial;
+                    background:#f4f4f1;
+                    color:#111;
+                    padding:32px;
+                }}
+                .box{{
+                    max-width:760px;
+                    background:white;
+                    border-radius:16px;
+                    box-shadow:0 10px 30px rgba(0,0,0,.08);
+                    padding:24px;
+                }}
+                code{{
+                    display:block;
+                    background:#f0f0f0;
+                    border-radius:10px;
+                    padding:12px;
+                    margin-top:12px;
+                    white-space:pre-wrap;
+                }}
+            </style>
+        </head>
+        <body>
+            <main class="box">
+                <h1>Error de conexión</h1>
+                <p>No se pudieron leer los correos de Hotmail/Outlook.</p>
+                <code>{error}</code>
+                <a href="/admin/leads">Volver al CRM</a>
+            </main>
+        </body>
+        </html>
+        ''', 500
+
+    filas = ''
+
+    for lead in leads:
+        nombre = html.escape(str(lead.get('nombre', '')))
+        telefono = html.escape(str(lead.get('telefono', '')))
+        email = html.escape(str(lead.get('email', '')))
+        propiedad = html.escape(str(lead.get('propiedad', '')))
+        mensaje = html.escape(str(lead.get('mensaje', '')))
+        fecha = html.escape(str(lead.get('fecha', '')))
+        estado_importacion = 'Duplicado' if lead.get('duplicado') else 'Nuevo'
+        estado_clase = 'duplicate' if lead.get('duplicado') else 'new'
+
+        filas += f'''
+        <tr>
+            <td>{fecha}</td>
+            <td>{nombre}</td>
+            <td>{telefono}</td>
+            <td>{email}</td>
+            <td>{propiedad}</td>
+            <td class="message-cell">{mensaje}</td>
+            <td><span class="pill {estado_clase}">{estado_importacion}</span></td>
+        </tr>
+        '''
+
+    if not filas:
+        filas = '''
+        <tr>
+            <td colspan="7">No se detectaron correos de InfoCasas en los últimos 20 correos.</td>
+        </tr>
+        '''
+
+    resultado_html = ''
+
+    if mensaje_resultado:
+        resultado_html = f'<div class="notice">{html.escape(mensaje_resultado)}</div>'
+
+    return f'''
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sync InfoCasas</title>
+        <style>
+            body{{
+                margin:0;
+                font-family:Arial;
+                background:#f4f4f1;
+                color:#111;
+                padding:32px;
+            }}
+            .page{{
+                max-width:1280px;
+                margin:0 auto;
+            }}
+            .top{{
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                gap:16px;
+                margin-bottom:24px;
+            }}
+            .top p{{
+                margin:6px 0 0;
+                color:#555;
+            }}
+            .actions{{
+                display:flex;
+                gap:10px;
+                flex-wrap:wrap;
+            }}
+            .btn{{
+                border:0;
+                background:#111;
+                color:white;
+                border-radius:999px;
+                padding:12px 18px;
+                text-decoration:none;
+                cursor:pointer;
+                font-size:14px;
+            }}
+            .btn-light{{
+                background:#eee;
+                color:#111;
+            }}
+            .notice{{
+                background:white;
+                border-radius:12px;
+                padding:14px 16px;
+                margin-bottom:18px;
+                box-shadow:0 8px 20px rgba(0,0,0,.06);
+            }}
+            .table-wrap{{
+                overflow-x:auto;
+                background:white;
+                border-radius:16px;
+                box-shadow:0 10px 30px rgba(0,0,0,.08);
+            }}
+            table{{
+                width:100%;
+                border-collapse:collapse;
+                min-width:1100px;
+            }}
+            th,
+            td{{
+                padding:14px;
+                border-bottom:1px solid #ddd;
+                text-align:left;
+                vertical-align:top;
+                font-size:14px;
+            }}
+            th{{
+                background:#111;
+                color:white;
+            }}
+            .message-cell{{
+                max-width:320px;
+                line-height:1.4;
+            }}
+            .pill{{
+                display:inline-block;
+                border-radius:999px;
+                padding:6px 10px;
+                background:#eee;
+            }}
+            .pill.new{{
+                background:#e8f4ed;
+            }}
+            .pill.duplicate{{
+                background:#f7e8e8;
+            }}
+            @media(max-width:700px){{
+                body{{
+                    padding:18px;
+                }}
+                .top{{
+                    display:block;
+                }}
+                .actions{{
+                    margin-top:14px;
+                }}
+            }}
+        </style>
+    </head>
+    <body>
+        <main class="page">
+            <div class="top">
+                <div>
+                    <h1>Sync InfoCasas</h1>
+                    <p>Preview de los últimos 20 correos detectados desde Hotmail/Outlook.</p>
+                </div>
+                <div class="actions">
+                    <form action="/admin/sync/infocasas" method="POST">
+                        <button class="btn" type="submit">Importar al CRM</button>
+                    </form>
+                    <a class="btn btn-light" href="/admin/leads">Volver al CRM</a>
+                </div>
+            </div>
+
+            {resultado_html}
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Nombre</th>
+                            <th>Teléfono</th>
+                            <th>Email</th>
+                            <th>Propiedad</th>
+                            <th>Mensaje</th>
+                            <th>Importación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {filas}
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </body>
+    </html>
+    '''
 
 # =========================
 # IA WEB
