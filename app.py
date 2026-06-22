@@ -3281,6 +3281,130 @@ def crm_enviar_email_prueba():
         return False, f'Error SMTP: {e}'
 
 
+
+
+def crm_smtp_valor_debug(nombre):
+
+    valor = os.getenv(nombre, '')
+    return {
+        'nombre': nombre,
+        'valor': valor,
+        'repr': repr(valor),
+        'largo': len(valor),
+        'tiene_espacios_extremos': valor != valor.strip(),
+        'tiene_salto_linea': ('\n' in valor) or ('\r' in valor),
+        'tiene_tab': '\t' in valor
+    }
+
+
+def crm_socket_test(host, port):
+
+    import socket
+    import time
+    resultado = {
+        'host': host,
+        'port': port,
+        'dns_ok': False,
+        'addresses': [],
+        'tcp_ok': False,
+        'elapsed_ms': None,
+        'error': ''
+    }
+
+    started = time.perf_counter()
+
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        resultado['dns_ok'] = True
+        resultado['addresses'] = sorted({info[4][0] for info in infos})
+    except Exception as e:
+        resultado['elapsed_ms'] = round((time.perf_counter() - started) * 1000, 2)
+        resultado['error'] = repr(e)
+        return resultado
+
+    try:
+        with socket.create_connection((host, int(port)), timeout=10):
+            resultado['tcp_ok'] = True
+    except Exception as e:
+        resultado['error'] = repr(e)
+
+    resultado['elapsed_ms'] = round((time.perf_counter() - started) * 1000, 2)
+    return resultado
+
+
+@app.route('/crm/test-smtp-network')
+def crm_test_smtp_network():
+
+    config = crm_smtp_config_actual()
+    variables = [
+        crm_smtp_valor_debug('SMTP_HOST'),
+        crm_smtp_valor_debug('SMTP_PORT'),
+        crm_smtp_valor_debug('SMTP_USER'),
+        crm_smtp_valor_debug('EMAIL_FROM')
+    ]
+
+    pruebas = []
+
+    if config['SMTP_HOST']:
+        pruebas.append(crm_socket_test(config['SMTP_HOST'], config['SMTP_PORT']))
+
+    pruebas.append(crm_socket_test('smtp.gmail.com', 587))
+    pruebas.append(crm_socket_test('smtp.gmail.com', 465))
+
+    html = '''
+    <!doctype html>
+    <html lang="es">
+    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagnóstico SMTP</title></head>
+    <body style="font-family:Arial,sans-serif;background:#f6f7f7;color:#222;padding:24px">
+        <main style="max-width:980px;margin:auto;background:white;border:1px solid #e1e5e7;border-radius:8px;padding:20px">
+            <h1>Diagnóstico SMTP Railway</h1>
+            <p>Ruta temporal protegida por login CRM. No muestra SMTP_PASSWORD.</p>
+
+            <h2>Variables leídas</h2>
+            <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%">
+                <thead><tr><th>Variable</th><th>Valor exacto</th><th>repr()</th><th>Largo</th><th>Espacios extremos</th><th>Saltos</th><th>Tabs</th></tr></thead>
+                <tbody>
+                {% for item in variables %}
+                    <tr>
+                        <td>{{ item.nombre }}</td>
+                        <td><code>{{ item.valor }}</code></td>
+                        <td><code>{{ item.repr }}</code></td>
+                        <td>{{ item.largo }}</td>
+                        <td>{{ item.tiene_espacios_extremos }}</td>
+                        <td>{{ item.tiene_salto_linea }}</td>
+                        <td>{{ item.tiene_tab }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+
+            <h2>Pruebas DNS/TCP</h2>
+            {% for prueba in pruebas %}
+                <section style="margin:14px 0;padding:12px;border:1px solid #e1e5e7;border-radius:7px;background:#fafafa">
+                    <h3>{{ prueba.host }}:{{ prueba.port }}</h3>
+                    <p><strong>DNS OK:</strong> {{ prueba.dns_ok }}</p>
+                    <p><strong>Direcciones:</strong> {{ prueba.addresses|join(', ') if prueba.addresses else '-' }}</p>
+                    <p><strong>TCP OK:</strong> {{ prueba.tcp_ok }}</p>
+                    <p><strong>Tiempo:</strong> {{ prueba.elapsed_ms }} ms</p>
+                    <p><strong>Error:</strong> <code>{{ prueba.error or '-' }}</code></p>
+                </section>
+            {% endfor %}
+
+            <h2>Valores recomendados Gmail</h2>
+            <pre>SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=tu_correo@gmail.com
+SMTP_PASSWORD=contraseña_de_aplicación_de_Google
+EMAIL_FROM=tu_correo@gmail.com</pre>
+            <p>Alternativa SSL: SMTP_PORT=465 si el código usa SMTP_SSL. Este proyecto actualmente usa STARTTLS, por eso corresponde 587.</p>
+            <p><a href="/crm/test-email">Volver a test-email</a></p>
+        </main>
+    </body>
+    </html>
+    '''
+
+    return render_template_string(html, variables=variables, pruebas=pruebas)
+
 @app.route('/crm/test-email', methods=['GET', 'POST'])
 def crm_test_email():
 
@@ -3957,6 +4081,7 @@ if __name__ == '__main__':
         port=int(os.getenv("PORT", 5000)),
         debug=True
     )
+
 
 
 
