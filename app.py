@@ -2374,11 +2374,13 @@ def enviar_email_recordatorio_tarea(tarea):
     auth = crm_auth_leer()
 
     if auth.get('recordatorios_activos') != 'Si':
+        print('Recordatorio email desactivado')
         return False
 
     email_to = auth.get('email_recordatorios') or os.getenv('EMAIL_RECORDATORIOS')
 
     if not email_to:
+        print('Recordatorio sin email destino configurado')
         return False
 
     import smtplib
@@ -2390,14 +2392,16 @@ def enviar_email_recordatorio_tarea(tarea):
     smtp_password = os.getenv('SMTP_PASSWORD', '').strip()
     email_from = (os.getenv('EMAIL_FROM') or smtp_user).strip()
 
+    print(f'Recordatorio SMTP config: SMTP_HOST={smtp_host or "NO_CONFIGURADO"}, SMTP_PORT={smtp_port_raw}, SMTP_USER={smtp_user or "NO_CONFIGURADO"}, EMAIL_FROM={email_from or "NO_CONFIGURADO"}')
+
     try:
         smtp_port = int(smtp_port_raw)
     except (TypeError, ValueError):
-        print(f'Advertencia CRM: SMTP_PORT inválido ({smtp_port_raw}). No se envió email de recordatorio.')
+        print(f'Error SMTP: SMTP_PORT inválido ({smtp_port_raw}). No se envió email de recordatorio.')
         return False
 
     if not smtp_host or not smtp_user or not smtp_password:
-        print('Advertencia CRM: faltan variables SMTP. No se envió email de recordatorio.')
+        print('Error SMTP: faltan variables SMTP. No se envió email de recordatorio.')
         return False
 
     body = f"""
@@ -2416,16 +2420,19 @@ Hora: {tarea.get('hora_limite', '')}
     msg['To'] = email_to
     msg.set_content(body)
 
+    print('Intentando enviar email')
+
     try:
         with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
             server.starttls()
             server.login(smtp_user, smtp_password)
             server.send_message(msg)
-        print('Email de recordatorio enviado correctamente')
+        print('Email enviado correctamente')
         return True
     except Exception as e:
-        print(f'Error enviando recordatorio CRM: {e}')
+        print(f'Error SMTP: {e}')
         return False
+
 def crm_actualizar_recordatorios_tareas(tareas):
 
     ahora = datetime.now()
@@ -2441,6 +2448,8 @@ def crm_actualizar_recordatorios_tareas(tareas):
             continue
 
         if vencimiento <= ahora:
+
+            print('Recordatorio detectado')
             if tarea.get('recordatorio_enviado') != 'Si':
                 if enviar_email_recordatorio_tarea(tarea):
                     tarea['recordatorio_enviado'] = 'Si'
@@ -3826,6 +3835,8 @@ if __name__ == '__main__':
         port=int(os.getenv("PORT", 5000)),
         debug=True
     )
+
+
 
 
 
