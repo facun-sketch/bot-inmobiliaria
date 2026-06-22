@@ -18,13 +18,13 @@
         <input id="usuario" name="usuario" value="{{ usuario }}" required>
 
         <label for="password_actual">Contraseña actual</label>
-        <input id="password_actual" name="password_actual" type="password" autocomplete="current-password" required>
+        <div class="password-wrap"><input id="password_actual" name="password_actual" type="password" autocomplete="current-password" required><button class="toggle-password" type="button" data-toggle-password="password_actual" aria-label="Mostrar contraseña actual" aria-pressed="false"><span aria-hidden="true">◉</span></button></div>
 
         <label for="password_nueva">Nueva contraseña</label>
-        <input id="password_nueva" name="password_nueva" type="password" autocomplete="new-password" placeholder="Dejar vacío para mantener la actual">
+        <div class="password-wrap"><input id="password_nueva" name="password_nueva" type="password" autocomplete="new-password" placeholder="Dejar vacío para mantener la actual"><button class="toggle-password" type="button" data-toggle-password="password_nueva" aria-label="Mostrar nueva contraseña" aria-pressed="false"><span aria-hidden="true">◉</span></button></div>
 
         <label for="password_confirmar">Confirmar nueva contraseña</label>
-        <input id="password_confirmar" name="password_confirmar" type="password" autocomplete="new-password">
+        <div class="password-wrap"><input id="password_confirmar" name="password_confirmar" type="password" autocomplete="new-password"><button class="toggle-password" type="button" data-toggle-password="password_confirmar" aria-label="Mostrar confirmación de contraseña" aria-pressed="false"><span aria-hidden="true">◉</span></button></div>
         <label for="email_recordatorios">Email de recordatorios</label>
         <input id="email_recordatorios" name="email_recordatorios" type="email" value="{{ email_recordatorios }}" placeholder="correo donde recibir avisos">
 
@@ -39,6 +39,26 @@
         </div>
     </form>
 </div>
+<style>
+    .password-wrap{position:relative}
+    .password-wrap input{padding-right:48px}
+    .toggle-password{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;border-radius:6px;background:transparent;color:#7b858b;cursor:pointer;font-size:18px;line-height:1;display:grid;place-items:center}
+    .toggle-password:focus{outline:2px solid #dff4f6}
+</style>
+<script>
+    document.querySelectorAll('[data-toggle-password]').forEach(function(button){
+        button.addEventListener('click', function(){
+            var input = document.getElementById(button.getAttribute('data-toggle-password'));
+            var visible = input.type === 'text';
+            input.type = visible ? 'password' : 'text';
+            button.setAttribute('aria-label', visible ? button.getAttribute('aria-label').replace('Ocultar', 'Mostrar') : button.getAttribute('aria-label').replace('Mostrar', 'Ocultar'));
+            button.setAttribute('aria-pressed', String(!visible));
+            button.querySelector('span').textContent = visible ? '◉' : '⊘';
+            input.focus();
+        });
+    });
+</script>
 {% endblock %}
+
 
 
