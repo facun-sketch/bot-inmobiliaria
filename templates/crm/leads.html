@@ -1,0 +1,48 @@
+{% extends "crm/base.html" %}
+
+{% block content %}
+<div class="page-head">
+    <div class="page-title">
+        <h1>Leads</h1>
+        <p>Contactos recibidos desde web, InfoCasas, Marketplace, WhatsApp y carga manual.</p>
+    </div>
+    <a class="btn" href="/admin/leads/nuevo">Nuevo lead</a>
+</div>
+
+<form class="toolbar hero-panel" method="GET" action="/crm/leads">
+    <input type="search" name="q" value="{{ busqueda }}" placeholder="Buscar por nombre, teléfono, email o propiedad">
+    <select name="fuente"><option value="">Todas las fuentes</option>{% for fuente in fuentes %}<option value="{{ fuente }}" {% if filtro_fuente == fuente %}selected{% endif %}>{{ fuente }}</option>{% endfor %}</select>
+    <select name="estado"><option value="">Todos los estados</option>{% for estado in estados %}<option value="{{ estado }}" {% if filtro_estado == estado %}selected{% endif %}>{{ estado }}</option>{% endfor %}</select>
+    <select name="prioridad"><option value="">Todas las prioridades</option><option value="Alta" {% if filtro_prioridad == "Alta" %}selected{% endif %}>Alta</option><option value="Media" {% if filtro_prioridad == "Media" %}selected{% endif %}>Media</option></select>
+    <select name="orden"><option value="recientes" {% if orden == "recientes" %}selected{% endif %}>Más recientes</option><option value="nombre" {% if orden == "nombre" %}selected{% endif %}>Nombre</option><option value="fuente" {% if orden == "fuente" %}selected{% endif %}>Fuente</option></select>
+    <button class="btn" type="submit">Filtrar</button><a class="btn secondary" href="/crm/leads">Limpiar</a>
+</form>
+
+<section class="lead-grid">
+    {% for lead in leads %}
+    <article class="lead-card">
+        <a href="/crm/lead/{{ lead.row_number }}" style="text-decoration:none">
+            <div class="lead-main">
+                <div><h3>{{ lead.nombre or "Sin nombre" }}</h3><p>{{ lead.propiedad or "Sin propiedad" }}</p></div>
+                <span class="pill {% if lead.prioridad == 'Alta' %}bad{% else %}warn{% endif %}">{{ lead.prioridad }}</span>
+            </div>
+            <div class="info-list">
+                <div><span>Teléfono</span><strong>{{ lead.telefono or "Sin teléfono" }}</strong></div>
+                <div><span>Email</span><strong>{{ lead.email or "Sin email" }}</strong></div>
+                <div><span>Estado</span><strong>{{ lead.estado or "Nuevo" }}</strong></div>
+            </div>
+            <div class="meta-line"><span class="pill teal">{{ lead.fuente or "Web" }}</span><span class="pill">{{ lead.fecha }}</span></div>
+        </a>
+        <div class="quick-actions">
+            <a class="btn secondary" href="tel:{{ lead.telefono }}">Llamar</a>
+            <a class="btn secondary" href="https://wa.me/{{ lead.telefono|replace(' ', '') }}" target="_blank">WhatsApp</a>
+            <a class="btn secondary" href="mailto:{{ lead.email }}">Email</a>
+            <a class="btn secondary" href="/crm/lead/{{ lead.row_number }}">Agendar visita</a>
+            <a class="btn secondary" href="/crm/lead/{{ lead.row_number }}">Crear tarea</a>
+        </div>
+    </article>
+    {% else %}
+    <div class="panel empty"><div><strong>No hay leads para mostrar</strong><p class="muted">Probá limpiar los filtros o cargar un nuevo lead.</p></div></div>
+    {% endfor %}
+</section>
+{% endblock %}

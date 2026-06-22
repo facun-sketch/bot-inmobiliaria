@@ -1,0 +1,33 @@
+{% extends "crm/base.html" %}
+
+{% block content %}
+<div class="page-head"><div class="page-title"><h1>Pipeline de oportunidades</h1><p>Seguimiento comercial por etapa, valor estimado y próxima acción.</p></div></div>
+
+<section class="kanban-pro">
+    {% for etapa in etapas %}
+    <div class="stage-pro" data-stage="{{ etapa }}">
+        <h3>{{ etapa }} <span class="stage-count">{{ tablero[etapa]|length }}</span></h3>
+        {% for oportunidad in tablero[etapa] %}
+        <article class="opp-card-pro" draggable="true" data-id="{{ oportunidad.id }}">
+            <h3>{{ oportunidad.nombre or "Sin nombre" }}</h3>
+            <p>{{ oportunidad.propiedad or "Sin propiedad" }}</p>
+            <div class="info-list"><div><span>Teléfono</span><strong>{{ oportunidad.telefono or "-" }}</strong></div><div><span>Fuente</span><strong>{{ oportunidad.fuente or "Manual" }}</strong></div></div>
+            {% if oportunidad.valor %}<div class="value">{{ oportunidad.valor }}</div>{% endif %}
+            <div class="meta-line"><span class="pill teal">{{ oportunidad.etapa }}</span><span class="pill">Próxima acción</span></div>
+        </article>
+        {% else %}<p class="muted" style="margin-top:16px">Sin oportunidades en esta etapa.</p>{% endfor %}
+    </div>
+    {% endfor %}
+</section>
+
+<details class="panel soft-form">
+    <summary>Crear oportunidad manual</summary>
+    <form method="POST" action="/crm/oportunidades" class="grid cols-3">
+        <div><label>Nombre</label><input name="nombre" required></div><div><label>Teléfono</label><input name="telefono"></div><div><label>Email</label><input name="email" type="email"></div><div><label>Propiedad</label><input name="propiedad"></div><div><label>Fuente</label><select name="fuente">{% for fuente in fuentes %}<option value="{{ fuente }}">{{ fuente }}</option>{% endfor %}</select></div><div><label>Etapa</label><select name="etapa">{% for etapa in etapas %}<option value="{{ etapa }}">{{ etapa }}</option>{% endfor %}</select></div><div><label>Valor estimado</label><input name="valor"></div><div><label>Notas</label><input name="notas"></div><div style="align-self:end"><button class="btn" type="submit">Crear oportunidad</button></div>
+    </form>
+</details>
+
+<script>
+let draggedCard=null;document.querySelectorAll('.opp-card-pro').forEach((card)=>{card.addEventListener('dragstart',()=>{draggedCard=card;card.style.opacity='.55'});card.addEventListener('dragend',()=>{card.style.opacity='1'})});document.querySelectorAll('.stage-pro').forEach((stage)=>{stage.addEventListener('dragover',(event)=>event.preventDefault());stage.addEventListener('drop',async()=>{if(!draggedCard)return;stage.appendChild(draggedCard);const data=new FormData();data.append('action','update_etapa');data.append('id',draggedCard.dataset.id);data.append('etapa',stage.dataset.stage);await fetch('/crm/oportunidades',{method:'POST',body:data})})});
+</script>
+{% endblock %}

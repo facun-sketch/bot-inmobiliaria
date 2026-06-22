@@ -1,16 +1,21 @@
 
-from flask import Flask, request, jsonify, send_from_directory, send_file, render_template
+from flask import Flask, request, jsonify, send_from_directory, send_file, render_template, session, redirect, url_for
 from flask_cors import CORS
 from openai import OpenAI
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
+import json
+import sqlite3
+from werkzeug.security import check_password_hash, generate_password_hash
 
 print("APP IMPORTADA")
 
 app = Flask(__name__)
+app.secret_key = os.getenv('CRM_SECRET_KEY', 'crm-local-secret-change-in-production')
+app.permanent_session_lifetime = timedelta(minutes=int(os.getenv('CRM_SESSION_TIMEOUT_MINUTES', '60')))
 CORS(app)
 
 print("FLASK LISTO")
@@ -568,8 +573,12 @@ def es_correo_infocasas(correo):
     subject = (correo.get('subject') or '').lower()
     body = obtener_texto_correo(correo).lower()
 
-    contenido = f'{sender} {subject} {body}'
-    return 'infocasas' in contenido
+    return (
+        'infocasas' in sender
+        and 'te han consultado por tu propiedad' in subject
+        and '¡tienes una nueva consulta!' in body
+        and 'consultó por tu propiedad' in body
+    )
 
 def extraer_linea(texto, etiquetas):
 
@@ -589,9 +598,6 @@ def extraer_lead_infocasas(correo):
     import re
 
     texto = obtener_texto_correo(correo)
-    subject = correo.get('subject') or ''
-    remitente = correo.get('from') or {}
-    email_info = remitente.get('emailAddress') or {}
 
     nombre = extraer_linea(texto, [
         'nombre',
@@ -615,13 +621,15 @@ def extraer_lead_infocasas(correo):
         'correo'
     ])
 
-    propiedad = extraer_linea(texto, [
-        'propiedad',
-        'inmueble',
-        'publicación',
-        'publicacion',
-        'aviso'
-    ])
+    propiedad = ''
+    propiedad_match = re.search(
+        r'consultó por tu propiedad\s*:\s*(.+?)(?:\n|$)',
+        texto,
+        flags=re.I
+    )
+
+    if propiedad_match:
+        propiedad = propiedad_match.group(1).strip()
 
     mensaje = extraer_linea(texto, [
         'mensaje',
@@ -638,13 +646,10 @@ def extraer_lead_infocasas(correo):
         email = email_match.group(0).strip() if email_match else ''
 
     if not nombre:
-        nombre = email_info.get('name', '').strip()
-
-    if not propiedad:
-        propiedad = subject.strip()
+        nombre = 'Contacto InfoCasas'
 
     if not mensaje:
-        mensaje = texto[:1200]
+        mensaje = texto
 
     return {
         'message_id': correo.get('internetMessageId') or correo.get('id') or '',
@@ -1854,6 +1859,1243 @@ MS_REFRESH_TOKEN</code>
     </body>
     </html>
     '''
+
+# =========================
+# STORAGE CRM PRODUCCION
+# =========================
+
+CRM_DATABASE_URL = os.getenv('DATABASE_URL', '').strip()
+CRM_SQLITE_PATH = os.getenv('CRM_SQLITE_PATH', 'crm_storage.db')
+CRM_STORAGE_TABLE = 'crm_storage_records'
+
+
+def crm_storage_es_postgres():
+    return bool(CRM_DATABASE_URL)
+
+
+def crm_storage_placeholder():
+    return '%s' if crm_storage_es_postgres() else '?'
+
+
+def crm_storage_connect():
+    if crm_storage_es_postgres():
+        import psycopg2
+        database_url = CRM_DATABASE_URL
+        if database_url.startswith('postgres://'):
+            database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        return psycopg2.connect(database_url)
+
+    return sqlite3.connect(CRM_SQLITE_PATH)
+
+
+def crm_storage_init():
+    conn = crm_storage_connect()
+    try:
+        cur = conn.cursor()
+        cur.execute(f"""
+            CREATE TABLE IF NOT EXISTS {CRM_STORAGE_TABLE} (
+                collection TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                data TEXT NOT NULL,
+                PRIMARY KEY (collection, position)
+            )
+        """)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def crm_storage_has_rows(collection):
+    crm_storage_init()
+    conn = crm_storage_connect()
+    ph = crm_storage_placeholder()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f'SELECT COUNT(*) FROM {CRM_STORAGE_TABLE} WHERE collection = {ph}',
+            (collection,)
+        )
+        return int(cur.fetchone()[0]) > 0
+    finally:
+        conn.close()
+
+
+def crm_storage_read(collection, headers):
+    crm_storage_init()
+    conn = crm_storage_connect()
+    ph = crm_storage_placeholder()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f'SELECT data FROM {CRM_STORAGE_TABLE} WHERE collection = {ph} ORDER BY position',
+            (collection,)
+        )
+        rows = []
+        for (data,) in cur.fetchall():
+            try:
+                row = json.loads(data)
+            except (TypeError, json.JSONDecodeError):
+                row = {}
+            rows.append({header: row.get(header, '') for header in headers})
+        return rows
+    finally:
+        conn.close()
+
+
+def crm_storage_write(collection, headers, rows):
+    crm_storage_init()
+    conn = crm_storage_connect()
+    ph = crm_storage_placeholder()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f'DELETE FROM {CRM_STORAGE_TABLE} WHERE collection = {ph}',
+            (collection,)
+        )
+        insert_sql = (
+            f'INSERT INTO {CRM_STORAGE_TABLE} (collection, position, data) '
+            f'VALUES ({ph}, {ph}, {ph})'
+        )
+        clean_rows = []
+        for index, row in enumerate(rows, start=1):
+            clean_row = {header: row.get(header, '') for header in headers}
+            clean_rows.append((
+                collection,
+                index,
+                json.dumps(clean_row, ensure_ascii=False)
+            ))
+        if clean_rows:
+            cur.executemany(insert_sql, clean_rows)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def crm_importar_csv_si_existe(collection, archivo, headers):
+    if crm_storage_has_rows(collection):
+        return
+
+    if not os.path.exists(archivo) or os.path.getsize(archivo) == 0:
+        return
+
+    with open(archivo, mode='r', newline='', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        rows = []
+        for row in reader:
+            rows.append({header: row.get(header, '') for header in headers})
+
+    if rows:
+        crm_storage_write(collection, headers, rows)
+        print(f'Migracion CRM: {archivo} importado a almacenamiento persistente')
+
+# =========================
+# ACCESO PRIVADO CRM
+# =========================
+
+CRM_AUTH_CSV = 'crm_auth.csv'
+CRM_AUTH_COLLECTION = 'crm_auth'
+CRM_AUTH_HEADERS = ['username', 'password_hash', 'updated_at']
+CRM_DEFAULT_USERNAME = os.getenv('CRM_DEFAULT_USERNAME', 'silviamar23!')
+CRM_DEFAULT_PASSWORD_HASH = os.getenv(
+    'CRM_DEFAULT_PASSWORD_HASH',
+    'scrypt:32768:8:1$QhCP0Eyj6q01FCUF$e60ed4d5a252b992b1e63259c69bec238d5ea3970a56d949414712b108e88c03c54aab442e9e0bd32038fb729a330c12f1c486cf0998e1e03b857824e9d3a5cb'
+)
+CRM_PUBLIC_PATHS = ['/crm/login']
+
+
+def crm_auth_crear_default():
+    auth = {
+        'username': CRM_DEFAULT_USERNAME,
+        'password_hash': CRM_DEFAULT_PASSWORD_HASH,
+        'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+    crm_storage_write(CRM_AUTH_COLLECTION, CRM_AUTH_HEADERS, [auth])
+
+    return auth
+
+
+def crm_auth_leer():
+    crm_importar_csv_si_existe(CRM_AUTH_COLLECTION, CRM_AUTH_CSV, CRM_AUTH_HEADERS)
+    rows = crm_storage_read(CRM_AUTH_COLLECTION, CRM_AUTH_HEADERS)
+
+    for row in rows:
+        if row.get('username') and row.get('password_hash'):
+            return row
+
+    return crm_auth_crear_default()
+
+
+def crm_auth_guardar(username, password_hash):
+    auth = {
+        'username': username,
+        'password_hash': password_hash,
+        'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+
+    crm_storage_write(CRM_AUTH_COLLECTION, CRM_AUTH_HEADERS, [auth])
+
+    return auth
+
+
+def crm_sesion_expirada():
+    ultima_actividad = session.get('crm_last_activity')
+
+    if not ultima_actividad:
+        return False
+
+    try:
+        ultima = datetime.fromisoformat(ultima_actividad)
+    except ValueError:
+        return True
+
+    return datetime.now() - ultima > app.permanent_session_lifetime
+
+
+@app.before_request
+def proteger_crm_privado():
+    ruta = request.path.rstrip('/') or '/'
+
+    if not ruta.startswith('/crm'):
+        return None
+
+    if ruta in CRM_PUBLIC_PATHS:
+        return None
+
+    if not session.get('crm_authenticated'):
+        return redirect(url_for('crm_login', next=request.full_path.rstrip('?')))
+
+    if crm_sesion_expirada():
+        session.clear()
+        return redirect(url_for('crm_login', expirado='1'))
+
+    session.permanent = True
+    session['crm_last_activity'] = datetime.now().isoformat()
+    return None
+
+
+@app.route('/crm/login', methods=['GET', 'POST'])
+def crm_login():
+    error = ''
+    expirado = request.args.get('expirado') == '1'
+
+    if session.get('crm_authenticated') and not crm_sesion_expirada():
+        return redirect(url_for('crm_dashboard'))
+
+    if request.method == 'POST':
+        usuario = request.form.get('usuario', '').strip()
+        password = request.form.get('password', '')
+        auth = crm_auth_leer()
+
+        if usuario == auth.get('username') and check_password_hash(auth.get('password_hash', ''), password):
+            session.clear()
+            session.permanent = True
+            session['crm_authenticated'] = True
+            session['crm_user'] = usuario
+            session['crm_last_activity'] = datetime.now().isoformat()
+            destino = request.form.get('next') or url_for('crm_dashboard')
+            return redirect(destino)
+
+        error = 'Usuario o contraseña incorrectos.'
+
+    return render_template(
+        'crm/login.html',
+        title='Acceso CRM',
+        error=error,
+        expirado=expirado,
+        next_url=request.args.get('next', '')
+    )
+
+
+@app.route('/crm/logout')
+def crm_logout():
+    session.clear()
+    return redirect(url_for('crm_login'))
+
+
+@app.route('/crm/cuenta', methods=['GET', 'POST'])
+def crm_cuenta():
+    auth = crm_auth_leer()
+    error = ''
+    success = ''
+
+    if request.method == 'POST':
+        usuario = request.form.get('usuario', '').strip()
+        password_actual = request.form.get('password_actual', '')
+        password_nueva = request.form.get('password_nueva', '')
+        password_confirmar = request.form.get('password_confirmar', '')
+
+        if not check_password_hash(auth.get('password_hash', ''), password_actual):
+            error = 'La contraseña actual no es correcta.'
+        elif not usuario:
+            error = 'El usuario no puede quedar vacío.'
+        elif password_nueva and password_nueva != password_confirmar:
+            error = 'La nueva contraseña y la confirmación no coinciden.'
+        else:
+            password_hash = auth.get('password_hash', '')
+            if password_nueva:
+                password_hash = generate_password_hash(password_nueva)
+
+            auth = crm_auth_guardar(usuario, password_hash)
+            session['crm_user'] = usuario
+            success = 'Cuenta actualizada correctamente.'
+
+    return render_template(
+        'crm/cuenta.html',
+        active='cuenta',
+        title='Mi Cuenta',
+        usuario=auth.get('username', ''),
+        error=error,
+        success=success
+    )
+
+# =========================
+# CRM INMOBILIARIO
+# =========================
+
+CRM_OPORTUNIDADES_CSV = 'crm_oportunidades.csv'
+CRM_TAREAS_CSV = 'crm_tareas.csv'
+CRM_CLIENTES_CSV = 'crm_clientes.csv'
+CRM_AGENDA_CSV = 'crm_agenda.csv'
+CRM_LEAD_NOTAS_CSV = 'crm_lead_notas.csv'
+
+CRM_STORAGE_COLLECTIONS = {
+    CRM_OPORTUNIDADES_CSV: 'crm_oportunidades',
+    CRM_TAREAS_CSV: 'crm_tareas',
+    CRM_CLIENTES_CSV: 'crm_clientes',
+    CRM_AGENDA_CSV: 'crm_agenda',
+    CRM_LEAD_NOTAS_CSV: 'crm_lead_notas',
+}
+
+CRM_OPORTUNIDAD_HEADERS = [
+    'id',
+    'nombre',
+    'telefono',
+    'email',
+    'propiedad',
+    'fuente',
+    'etapa',
+    'valor',
+    'fecha_creacion',
+    'notas',
+    'historial'
+]
+
+CRM_TAREA_HEADERS = [
+    'id',
+    'titulo',
+    'cliente',
+    'propiedad',
+    'fecha_limite',
+    'prioridad',
+    'estado',
+    'recordatorio',
+    'notas',
+    'fecha_creacion'
+]
+
+CRM_CLIENTE_HEADERS = [
+    'id',
+    'nombre',
+    'telefono',
+    'email',
+    'tipo',
+    'propiedad',
+    'fuente',
+    'historial',
+    'notas',
+    'fecha_creacion'
+]
+
+CRM_AGENDA_HEADERS = [
+    'id',
+    'fecha',
+    'hora',
+    'cliente',
+    'telefono',
+    'propiedad',
+    'estado',
+    'notas',
+    'fecha_creacion'
+]
+
+CRM_LEAD_NOTA_HEADERS = [
+    'id',
+    'lead_row',
+    'tipo',
+    'contenido',
+    'fecha'
+]
+
+CRM_ETAPAS_OPORTUNIDAD = [
+    'Cultivar',
+    'Cita',
+    'Activo',
+    'Oferta',
+    'Bajo contrato',
+    'Cerrado'
+]
+
+CRM_PRIORIDADES = [
+    'Alta',
+    'Media',
+    'Baja'
+]
+
+CRM_ESTADOS_TAREA = [
+    'Pendiente',
+    'En curso',
+    'Completada'
+]
+
+CRM_ESTADOS_VISITA = [
+    'Agendada',
+    'Confirmada',
+    'Realizada',
+    'Cancelada'
+]
+
+def crm_now():
+
+    return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+def crm_generar_id(prefix):
+
+    return f"{prefix}-{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+
+def crm_storage_collection(archivo):
+
+    return CRM_STORAGE_COLLECTIONS.get(archivo, archivo.replace('.csv', ''))
+
+def crm_leer_csv(archivo, headers):
+
+    collection = crm_storage_collection(archivo)
+    crm_importar_csv_si_existe(collection, archivo, headers)
+    return crm_storage_read(collection, headers)
+
+def crm_escribir_csv(archivo, headers, rows):
+
+    collection = crm_storage_collection(archivo)
+    crm_storage_write(collection, headers, rows)
+
+def crm_agregar_csv(archivo, headers, row):
+
+    rows = crm_leer_csv(archivo, headers)
+    rows.append({
+        header: row.get(header, '')
+        for header in headers
+    })
+    crm_escribir_csv(archivo, headers, rows)
+
+def crm_parse_fecha(valor):
+
+    if not valor:
+        return None
+
+    formatos = [
+        '%Y-%m-%d',
+        '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%dT%H:%M:%SZ'
+    ]
+
+    for formato in formatos:
+        try:
+            return datetime.strptime(valor[:19], formato)
+        except ValueError:
+            continue
+
+    return None
+
+def crm_obtener_leads():
+
+    headers, rows = obtener_interesados_datos()
+    leads = []
+
+    for index, row in enumerate(rows, start=2):
+        lead = lead_desde_fila(headers, row)
+        lead['row_number'] = index
+        estado = lead.get('estado') or 'Nuevo'
+        fuente = lead.get('fuente') or 'Web'
+        lead['prioridad'] = 'Alta' if estado == 'Nuevo' else 'Media'
+        lead['etiquetas'] = [fuente, estado]
+        leads.append(lead)
+
+    leads.sort(
+        key=lambda item: item.get('fecha', ''),
+        reverse=True
+    )
+    return leads
+
+def crm_leads_sin_contactar(leads):
+
+    return [
+        lead
+        for lead in leads
+        if (lead.get('estado') or 'Nuevo') == 'Nuevo'
+    ]
+
+def crm_seguimientos_atrasados(tareas):
+
+    hoy = datetime.now().date()
+    atrasadas = []
+
+    for tarea in tareas:
+        fecha = crm_parse_fecha(tarea.get('fecha_limite'))
+
+        if (
+            fecha
+            and fecha.date() < hoy
+            and tarea.get('estado') != 'Completada'
+        ):
+            atrasadas.append(tarea)
+
+    return atrasadas
+
+def crm_tareas_hoy(tareas):
+
+    hoy = datetime.now().date()
+    return [
+        tarea
+        for tarea in tareas
+        if (
+            crm_parse_fecha(tarea.get('fecha_limite'))
+            and crm_parse_fecha(tarea.get('fecha_limite')).date() == hoy
+            and tarea.get('estado') != 'Completada'
+        )
+    ]
+
+def crm_visitas_hoy(agenda):
+
+    hoy = datetime.now().date()
+    return [
+        visita
+        for visita in agenda
+        if (
+            crm_parse_fecha(visita.get('fecha'))
+            and crm_parse_fecha(visita.get('fecha')).date() == hoy
+            and visita.get('estado') in ['', 'Agendada', 'Confirmada']
+        )
+    ]
+
+def crm_visitas_proximas(agenda):
+
+    hoy = datetime.now().date()
+    visitas = []
+
+    for visita in agenda:
+        fecha = crm_parse_fecha(visita.get('fecha'))
+
+        if (
+            fecha
+            and fecha.date() >= hoy
+            and visita.get('estado') in ['', 'Agendada', 'Confirmada']
+        ):
+            visitas.append(visita)
+
+    return visitas
+
+def crm_lead_por_row(row_number):
+
+    leads = crm_obtener_leads()
+
+    for lead in leads:
+        if str(lead.get('row_number')) == str(row_number):
+            return lead
+
+    return None
+
+def crm_notas_lead(row_number):
+
+    notas = crm_leer_csv(CRM_LEAD_NOTAS_CSV, CRM_LEAD_NOTA_HEADERS)
+    return [
+        nota
+        for nota in notas
+        if str(nota.get('lead_row')) == str(row_number)
+    ]
+
+def crm_tareas_asociadas_lead(lead):
+
+    tareas = crm_leer_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS)
+    nombre = (lead.get('nombre') or '').lower()
+    propiedad = (lead.get('propiedad') or '').lower()
+
+    return [
+        tarea
+        for tarea in tareas
+        if (
+            nombre
+            and nombre in (tarea.get('cliente') or '').lower()
+        ) or (
+            propiedad
+            and propiedad in (tarea.get('propiedad') or '').lower()
+        )
+    ]
+
+def crm_oportunidades_asociadas(lead):
+
+    oportunidades = crm_leer_csv(CRM_OPORTUNIDADES_CSV, CRM_OPORTUNIDAD_HEADERS)
+    nombre = (lead.get('nombre') or '').lower()
+    propiedad = (lead.get('propiedad') or '').lower()
+
+    return [
+        oportunidad
+        for oportunidad in oportunidades
+        if (
+            nombre
+            and nombre in (oportunidad.get('nombre') or '').lower()
+        ) or (
+            propiedad
+            and propiedad in (oportunidad.get('propiedad') or '').lower()
+        )
+    ]
+
+def crm_cliente_por_id(cliente_id):
+
+    clientes = crm_leer_csv(CRM_CLIENTES_CSV, CRM_CLIENTE_HEADERS)
+
+    for cliente in clientes:
+        if cliente.get('id') == cliente_id:
+            return cliente
+
+    return None
+
+def crm_tareas_asociadas_cliente(cliente):
+
+    tareas = crm_leer_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS)
+    nombre = (cliente.get('nombre') or '').lower()
+    propiedad = (cliente.get('propiedad') or '').lower()
+
+    return [
+        tarea
+        for tarea in tareas
+        if (
+            nombre
+            and nombre in (tarea.get('cliente') or '').lower()
+        ) or (
+            propiedad
+            and propiedad in (tarea.get('propiedad') or '').lower()
+        )
+    ]
+
+def crm_tareas_segmentadas(tareas):
+
+    hoy = datetime.now().date()
+    grupos = {
+        'hoy': [],
+        'proximas': [],
+        'vencidas': [],
+        'completadas': []
+    }
+
+    for tarea in tareas:
+        estado = tarea.get('estado') or 'Pendiente'
+        fecha = crm_parse_fecha(tarea.get('fecha_limite'))
+
+        if estado == 'Completada':
+            grupos['completadas'].append(tarea)
+        elif fecha and fecha.date() < hoy:
+            grupos['vencidas'].append(tarea)
+        elif fecha and fecha.date() == hoy:
+            grupos['hoy'].append(tarea)
+        else:
+            grupos['proximas'].append(tarea)
+
+    return grupos
+
+def crm_agenda_por_fecha(agenda):
+
+    grupos = {}
+
+    for visita in agenda:
+        fecha = visita.get('fecha') or 'Sin fecha'
+
+        if fecha not in grupos:
+            grupos[fecha] = []
+
+        grupos[fecha].append(visita)
+
+    return grupos
+
+def crm_dashboard_context():
+
+    leads = crm_obtener_leads()
+    oportunidades = crm_leer_csv(CRM_OPORTUNIDADES_CSV, CRM_OPORTUNIDAD_HEADERS)
+    tareas = crm_leer_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS)
+    clientes = crm_leer_csv(CRM_CLIENTES_CSV, CRM_CLIENTE_HEADERS)
+    agenda = crm_leer_csv(CRM_AGENDA_CSV, CRM_AGENDA_HEADERS)
+
+    leads_nuevos = [
+        lead
+        for lead in leads
+        if (lead.get('estado') or 'Nuevo') == 'Nuevo'
+    ]
+    visitas_proximas = crm_visitas_proximas(agenda)
+    tareas_atrasadas = crm_seguimientos_atrasados(tareas)
+    oportunidades_activas = [
+        oportunidad
+        for oportunidad in oportunidades
+        if oportunidad.get('etapa') != 'Cerrado'
+    ]
+
+    fuentes = {}
+    for lead in leads:
+        fuente = lead.get('fuente') or 'Web'
+        fuentes[fuente] = fuentes.get(fuente, 0) + 1
+
+    etapas = {}
+    for etapa in CRM_ETAPAS_OPORTUNIDAD:
+        etapas[etapa] = 0
+
+    for oportunidad in oportunidades:
+        etapa = oportunidad.get('etapa') or 'Cultivar'
+        etapas[etapa] = etapas.get(etapa, 0) + 1
+
+    return {
+        'leads': leads,
+        'leads_nuevos': leads_nuevos,
+        'leads_sin_contactar': crm_leads_sin_contactar(leads),
+        'visitas_proximas': visitas_proximas,
+        'visitas_hoy': crm_visitas_hoy(agenda),
+        'tareas_hoy': crm_tareas_hoy(tareas),
+        'seguimientos_atrasados': tareas_atrasadas,
+        'oportunidades': oportunidades,
+        'oportunidades_activas': oportunidades_activas,
+        'tareas': tareas,
+        'clientes': clientes,
+        'agenda': agenda,
+        'fuentes': fuentes,
+        'etapas': etapas
+    }
+
+def crm_notificaciones_context():
+
+    context = crm_dashboard_context()
+    notificaciones = []
+
+    for lead in context['leads_nuevos'][:8]:
+        notificaciones.append({
+            'tipo': 'Lead nuevo',
+            'titulo': lead.get('nombre') or 'Nuevo contacto',
+            'detalle': lead.get('propiedad') or lead.get('fuente') or 'Sin propiedad',
+            'fecha': lead.get('fecha', ''),
+            'nivel': 'info'
+        })
+
+    for tarea in context['tareas_hoy'][:8]:
+        notificaciones.append({
+            'tipo': 'Tarea vence hoy',
+            'titulo': tarea.get('titulo') or 'Seguimiento pendiente',
+            'detalle': tarea.get('cliente') or tarea.get('propiedad') or 'Sin cliente',
+            'fecha': tarea.get('fecha_limite', ''),
+            'nivel': 'warning'
+        })
+
+    for tarea in context['seguimientos_atrasados'][:8]:
+        notificaciones.append({
+            'tipo': 'Tarea vencida',
+            'titulo': tarea.get('titulo') or 'Seguimiento pendiente',
+            'detalle': tarea.get('cliente') or tarea.get('propiedad') or 'Sin cliente',
+            'fecha': tarea.get('fecha_limite', ''),
+            'nivel': 'danger'
+        })
+
+    for visita in context['visitas_hoy'][:8]:
+        notificaciones.append({
+            'tipo': 'Visita hoy',
+            'titulo': visita.get('cliente') or 'Visita agendada',
+            'detalle': f"{visita.get('propiedad', '')} {visita.get('hora', '')}".strip(),
+            'fecha': visita.get('fecha', ''),
+            'nivel': 'success'
+        })
+
+    for visita in context['visitas_proximas'][:8]:
+        notificaciones.append({
+            'tipo': 'Visita próxima',
+            'titulo': visita.get('cliente') or 'Visita agendada',
+            'detalle': f"{visita.get('propiedad', '')} {visita.get('hora', '')}".strip(),
+            'fecha': visita.get('fecha', ''),
+            'nivel': 'success'
+        })
+
+    return notificaciones
+
+@app.route('/crm')
+def crm_home():
+
+    return crm_dashboard()
+
+@app.route('/crm/dashboard')
+def crm_dashboard():
+
+    context = crm_dashboard_context()
+    return render_template(
+        'crm/dashboard.html',
+        active='dashboard',
+        title='Dashboard',
+        **context
+    )
+
+@app.route('/crm/leads')
+def crm_leads():
+
+    leads = crm_obtener_leads()
+    fuente = request.args.get('fuente', '').strip()
+    estado = request.args.get('estado', '').strip()
+    busqueda = request.args.get('q', '').strip().lower()
+    prioridad = request.args.get('prioridad', '').strip()
+    orden = request.args.get('orden', '').strip() or 'recientes'
+
+    if fuente:
+        leads = [
+            lead
+            for lead in leads
+            if (lead.get('fuente') or 'Web') == fuente
+        ]
+
+    if estado:
+        leads = [
+            lead
+            for lead in leads
+            if (lead.get('estado') or 'Nuevo') == estado
+        ]
+
+    if prioridad:
+        leads = [
+            lead
+            for lead in leads
+            if lead.get('prioridad') == prioridad
+        ]
+
+    if busqueda:
+        leads = [
+            lead
+            for lead in leads
+            if busqueda in ' '.join([
+                lead.get('nombre', ''),
+                lead.get('telefono', ''),
+                lead.get('email', ''),
+                lead.get('propiedad', ''),
+                lead.get('mensaje', '')
+            ]).lower()
+        ]
+
+    if orden == 'nombre':
+        leads.sort(key=lambda lead: (lead.get('nombre') or '').lower())
+    elif orden == 'fuente':
+        leads.sort(key=lambda lead: (lead.get('fuente') or '').lower())
+    else:
+        leads.sort(key=lambda lead: lead.get('fecha', ''), reverse=True)
+
+    return render_template(
+        'crm/leads.html',
+        active='leads',
+        title='Leads',
+        leads=leads,
+        fuentes=FUENTES_LEAD,
+        estados=ESTADOS_LEAD,
+        filtro_fuente=fuente,
+        filtro_estado=estado,
+        filtro_prioridad=prioridad,
+        orden=orden,
+        busqueda=busqueda
+    )
+
+@app.route('/crm/lead/<int:row_number>', methods=['GET', 'POST'])
+def crm_lead_perfil(row_number):
+
+    lead = crm_lead_por_row(row_number)
+
+    if not lead:
+        return "Lead no encontrado.", 404
+
+    if request.method == 'POST':
+        action = request.form.get('action', '').strip() or 'crear_nota'
+
+        if action == 'crear_tarea':
+            tarea = {
+                'id': crm_generar_id('task'),
+                'titulo': request.form.get('titulo', '').strip() or f"Seguimiento: {lead.get('nombre') or 'Lead'}",
+                'cliente': lead.get('nombre', ''),
+                'propiedad': lead.get('propiedad', ''),
+                'fecha_limite': request.form.get('fecha_limite', '').strip(),
+                'prioridad': request.form.get('prioridad', '').strip() or 'Media',
+                'estado': 'Pendiente',
+                'recordatorio': request.form.get('recordatorio', '').strip(),
+                'notas': request.form.get('notas', '').strip(),
+                'fecha_creacion': crm_now()
+            }
+            crm_agregar_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tarea)
+            crm_agregar_csv(CRM_LEAD_NOTAS_CSV, CRM_LEAD_NOTA_HEADERS, {
+                'id': crm_generar_id('note'),
+                'lead_row': str(row_number),
+                'tipo': 'Tarea',
+                'contenido': f"Tarea creada: {tarea['titulo']} para {tarea['fecha_limite']}",
+                'fecha': crm_now()
+            })
+
+        elif action == 'agendar_visita':
+            visita = {
+                'id': crm_generar_id('visit'),
+                'fecha': request.form.get('fecha', '').strip(),
+                'hora': request.form.get('hora', '').strip(),
+                'cliente': lead.get('nombre', ''),
+                'telefono': lead.get('telefono', ''),
+                'propiedad': lead.get('propiedad', ''),
+                'estado': 'Agendada',
+                'notas': request.form.get('notas', '').strip(),
+                'fecha_creacion': crm_now()
+            }
+            crm_agregar_csv(CRM_AGENDA_CSV, CRM_AGENDA_HEADERS, visita)
+            crm_agregar_csv(CRM_LEAD_NOTAS_CSV, CRM_LEAD_NOTA_HEADERS, {
+                'id': crm_generar_id('note'),
+                'lead_row': str(row_number),
+                'tipo': 'Visita',
+                'contenido': f"Visita agendada: {visita['fecha']} {visita['hora']}",
+                'fecha': crm_now()
+            })
+
+        elif action == 'registrar_llamada':
+            resultado = request.form.get('resultado', '').strip() or 'Sin resultado'
+            observacion = request.form.get('observacion', '').strip()
+            crm_agregar_csv(CRM_LEAD_NOTAS_CSV, CRM_LEAD_NOTA_HEADERS, {
+                'id': crm_generar_id('note'),
+                'lead_row': str(row_number),
+                'tipo': 'Llamada',
+                'contenido': f"Resultado: {resultado}. {observacion}".strip(),
+                'fecha': crm_now()
+            })
+
+        elif action == 'convertir_oportunidad':
+            notas = crm_notas_lead(row_number)
+            historial = ' | '.join([
+                f"{nota.get('fecha', '')} {nota.get('tipo', '')}: {nota.get('contenido', '')}"
+                for nota in notas
+            ])
+            oportunidad = {
+                'id': crm_generar_id('opp'),
+                'nombre': lead.get('nombre', ''),
+                'telefono': lead.get('telefono', ''),
+                'email': lead.get('email', ''),
+                'propiedad': lead.get('propiedad', ''),
+                'fuente': lead.get('fuente', '') or 'Web',
+                'etapa': request.form.get('etapa', '').strip() or 'Cultivar',
+                'valor': request.form.get('valor', '').strip(),
+                'fecha_creacion': crm_now(),
+                'notas': request.form.get('notas', '').strip() or lead.get('mensaje', ''),
+                'historial': historial
+            }
+            crm_agregar_csv(CRM_OPORTUNIDADES_CSV, CRM_OPORTUNIDAD_HEADERS, oportunidad)
+            actualizar_estado_interesado_storage(row_number, 'Negociación')
+            crm_agregar_csv(CRM_LEAD_NOTAS_CSV, CRM_LEAD_NOTA_HEADERS, {
+                'id': crm_generar_id('note'),
+                'lead_row': str(row_number),
+                'tipo': 'Oportunidad',
+                'contenido': f"Lead convertido a oportunidad en etapa {oportunidad['etapa']}",
+                'fecha': crm_now()
+            })
+
+        else:
+            nota = {
+                'id': crm_generar_id('note'),
+                'lead_row': str(row_number),
+                'tipo': request.form.get('tipo', '').strip() or 'Nota',
+                'contenido': request.form.get('contenido', '').strip(),
+                'fecha': crm_now()
+            }
+
+            if nota['contenido']:
+                crm_agregar_csv(CRM_LEAD_NOTAS_CSV, CRM_LEAD_NOTA_HEADERS, nota)
+
+        return redirect(url_for('crm_lead_perfil', row_number=row_number))
+
+    return render_template(
+        'crm/lead_perfil.html',
+        active='leads',
+        title='Perfil de lead',
+        lead=lead,
+        notas=crm_notas_lead(row_number),
+        tareas=crm_tareas_asociadas_lead(lead),
+        oportunidades=crm_oportunidades_asociadas(lead),
+        etapas=CRM_ETAPAS_OPORTUNIDAD,
+        prioridades=CRM_PRIORIDADES
+    )
+
+@app.route('/crm/oportunidades', methods=['GET', 'POST'])
+def crm_oportunidades():
+
+    if request.method == 'POST':
+        action = request.form.get('action', '').strip()
+        oportunidades = crm_leer_csv(CRM_OPORTUNIDADES_CSV, CRM_OPORTUNIDAD_HEADERS)
+
+        if action == 'update_etapa':
+            oportunidad_id = request.form.get('id', '').strip()
+            etapa = request.form.get('etapa', '').strip()
+
+            if etapa in CRM_ETAPAS_OPORTUNIDAD:
+                for oportunidad in oportunidades:
+                    if oportunidad.get('id') == oportunidad_id:
+                        oportunidad['etapa'] = etapa
+                        break
+
+                crm_escribir_csv(
+                    CRM_OPORTUNIDADES_CSV,
+                    CRM_OPORTUNIDAD_HEADERS,
+                    oportunidades
+                )
+
+            return jsonify({'ok': True})
+
+        oportunidad = {
+            'id': crm_generar_id('opp'),
+            'nombre': request.form.get('nombre', '').strip(),
+            'telefono': request.form.get('telefono', '').strip(),
+            'email': request.form.get('email', '').strip(),
+            'propiedad': request.form.get('propiedad', '').strip(),
+            'fuente': request.form.get('fuente', '').strip() or 'Manual',
+            'etapa': request.form.get('etapa', '').strip() or 'Cultivar',
+            'valor': request.form.get('valor', '').strip(),
+            'fecha_creacion': crm_now(),
+            'notas': request.form.get('notas', '').strip()
+        }
+        crm_agregar_csv(
+            CRM_OPORTUNIDADES_CSV,
+            CRM_OPORTUNIDAD_HEADERS,
+            oportunidad
+        )
+
+    oportunidades = crm_leer_csv(CRM_OPORTUNIDADES_CSV, CRM_OPORTUNIDAD_HEADERS)
+    tablero = {
+        etapa: []
+        for etapa in CRM_ETAPAS_OPORTUNIDAD
+    }
+
+    for oportunidad in oportunidades:
+        etapa = oportunidad.get('etapa') or 'Cultivar'
+
+        if etapa not in tablero:
+            tablero[etapa] = []
+
+        tablero[etapa].append(oportunidad)
+
+    return render_template(
+        'crm/oportunidades.html',
+        active='oportunidades',
+        title='Oportunidades',
+        etapas=CRM_ETAPAS_OPORTUNIDAD,
+        tablero=tablero,
+        fuentes=FUENTES_LEAD
+    )
+
+@app.route('/crm/tareas', methods=['GET', 'POST'])
+def crm_tareas():
+
+    if request.method == 'POST':
+        action = request.form.get('action', '').strip() or 'create'
+        tareas = crm_leer_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS)
+        tarea_id = request.form.get('id', '').strip()
+
+        if action == 'delete':
+            tareas = [tarea for tarea in tareas if tarea.get('id') != tarea_id]
+            crm_escribir_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tareas)
+            return redirect(url_for('crm_tareas'))
+
+        if action in ['complete', 'update']:
+            for tarea in tareas:
+                if tarea.get('id') == tarea_id:
+                    if action == 'complete':
+                        tarea['estado'] = 'Completada'
+                    else:
+                        tarea['titulo'] = request.form.get('titulo', '').strip()
+                        tarea['cliente'] = request.form.get('cliente', '').strip()
+                        tarea['propiedad'] = request.form.get('propiedad', '').strip()
+                        tarea['fecha_limite'] = request.form.get('fecha_limite', '').strip()
+                        tarea['prioridad'] = request.form.get('prioridad', '').strip() or 'Media'
+                        tarea['estado'] = request.form.get('estado', '').strip() or 'Pendiente'
+                        tarea['recordatorio'] = request.form.get('recordatorio', '').strip()
+                        tarea['notas'] = request.form.get('notas', '').strip()
+                    break
+            crm_escribir_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tareas)
+            return redirect(url_for('crm_tareas'))
+
+        tarea = {
+            'id': crm_generar_id('task'),
+            'titulo': request.form.get('titulo', '').strip(),
+            'cliente': request.form.get('cliente', '').strip(),
+            'propiedad': request.form.get('propiedad', '').strip(),
+            'fecha_limite': request.form.get('fecha_limite', '').strip(),
+            'prioridad': request.form.get('prioridad', '').strip() or 'Media',
+            'estado': request.form.get('estado', '').strip() or 'Pendiente',
+            'recordatorio': request.form.get('recordatorio', '').strip(),
+            'notas': request.form.get('notas', '').strip(),
+            'fecha_creacion': crm_now()
+        }
+        crm_agregar_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tarea)
+        return redirect(url_for('crm_tareas'))
+
+    tareas = crm_leer_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS)
+    atrasadas = {
+        tarea.get('id')
+        for tarea in crm_seguimientos_atrasados(tareas)
+    }
+    grupos = crm_tareas_segmentadas(tareas)
+
+    return render_template(
+        'crm/tareas.html',
+        active='tareas',
+        title='Tareas',
+        tareas=tareas,
+        grupos=grupos,
+        atrasadas=atrasadas,
+        prioridades=CRM_PRIORIDADES,
+        estados=CRM_ESTADOS_TAREA
+    )
+
+@app.route('/crm/clientes', methods=['GET', 'POST'])
+def crm_clientes():
+
+    if request.method == 'POST':
+        cliente = {
+            'id': crm_generar_id('client'),
+            'nombre': request.form.get('nombre', '').strip(),
+            'telefono': request.form.get('telefono', '').strip(),
+            'email': request.form.get('email', '').strip(),
+            'tipo': request.form.get('tipo', '').strip() or 'Comprador',
+            'propiedad': request.form.get('propiedad', '').strip(),
+            'fuente': request.form.get('fuente', '').strip() or 'Manual',
+            'historial': request.form.get('historial', '').strip(),
+            'notas': request.form.get('notas', '').strip(),
+            'fecha_creacion': crm_now()
+        }
+        crm_agregar_csv(CRM_CLIENTES_CSV, CRM_CLIENTE_HEADERS, cliente)
+
+    clientes = crm_leer_csv(CRM_CLIENTES_CSV, CRM_CLIENTE_HEADERS)
+    busqueda = request.args.get('q', '').strip().lower()
+    tipo = request.args.get('tipo', '').strip()
+
+    if tipo:
+        clientes = [
+            cliente
+            for cliente in clientes
+            if cliente.get('tipo') == tipo
+        ]
+
+    if busqueda:
+        clientes = [
+            cliente
+            for cliente in clientes
+            if busqueda in ' '.join([
+                cliente.get('nombre', ''),
+                cliente.get('telefono', ''),
+                cliente.get('email', ''),
+                cliente.get('propiedad', ''),
+                cliente.get('notas', '')
+            ]).lower()
+        ]
+
+    compradores = [
+        cliente
+        for cliente in clientes
+        if cliente.get('tipo') == 'Comprador'
+    ]
+    vendedores = [
+        cliente
+        for cliente in clientes
+        if cliente.get('tipo') == 'Vendedor'
+    ]
+
+    return render_template(
+        'crm/clientes.html',
+        active='clientes',
+        title='Clientes',
+        clientes=clientes,
+        compradores=compradores,
+        vendedores=vendedores,
+        fuentes=FUENTES_LEAD,
+        busqueda=busqueda,
+        filtro_tipo=tipo
+    )
+
+@app.route('/crm/cliente/<cliente_id>')
+def crm_cliente_perfil(cliente_id):
+
+    cliente = crm_cliente_por_id(cliente_id)
+
+    if not cliente:
+        return "Cliente no encontrado.", 404
+
+    return render_template(
+        'crm/cliente_perfil.html',
+        active='clientes',
+        title='Perfil de cliente',
+        cliente=cliente,
+        tareas=crm_tareas_asociadas_cliente(cliente)
+    )
+
+@app.route('/crm/agenda', methods=['GET', 'POST'])
+def crm_agenda():
+
+    if request.method == 'POST':
+        action = request.form.get('action', '').strip() or 'create'
+        agenda = crm_leer_csv(CRM_AGENDA_CSV, CRM_AGENDA_HEADERS)
+        visita_id = request.form.get('id', '').strip()
+
+        if action in ['realizada', 'cancelar', 'update']:
+            for visita in agenda:
+                if visita.get('id') == visita_id:
+                    if action == 'realizada':
+                        visita['estado'] = 'Realizada'
+                    elif action == 'cancelar':
+                        visita['estado'] = 'Cancelada'
+                    else:
+                        visita['fecha'] = request.form.get('fecha', '').strip()
+                        visita['hora'] = request.form.get('hora', '').strip()
+                        visita['cliente'] = request.form.get('cliente', '').strip()
+                        visita['telefono'] = request.form.get('telefono', '').strip()
+                        visita['propiedad'] = request.form.get('propiedad', '').strip()
+                        visita['estado'] = request.form.get('estado', '').strip() or 'Agendada'
+                        visita['notas'] = request.form.get('notas', '').strip()
+                    break
+            crm_escribir_csv(CRM_AGENDA_CSV, CRM_AGENDA_HEADERS, agenda)
+            return redirect(url_for('crm_agenda'))
+
+        visita = {
+            'id': crm_generar_id('visit'),
+            'fecha': request.form.get('fecha', '').strip(),
+            'hora': request.form.get('hora', '').strip(),
+            'cliente': request.form.get('cliente', '').strip(),
+            'telefono': request.form.get('telefono', '').strip(),
+            'propiedad': request.form.get('propiedad', '').strip(),
+            'estado': request.form.get('estado', '').strip() or 'Agendada',
+            'notas': request.form.get('notas', '').strip(),
+            'fecha_creacion': crm_now()
+        }
+        crm_agregar_csv(CRM_AGENDA_CSV, CRM_AGENDA_HEADERS, visita)
+        return redirect(url_for('crm_agenda'))
+
+    agenda = crm_leer_csv(CRM_AGENDA_CSV, CRM_AGENDA_HEADERS)
+    agenda.sort(
+        key=lambda visita: f"{visita.get('fecha', '')} {visita.get('hora', '')}"
+    )
+
+    return render_template(
+        'crm/agenda.html',
+        active='agenda',
+        title='Agenda',
+        agenda=agenda,
+        agenda_por_fecha=crm_agenda_por_fecha(agenda),
+        visitas_hoy=crm_visitas_hoy(agenda),
+        estados=CRM_ESTADOS_VISITA
+    )
+
+@app.route('/crm/notificaciones')
+def crm_notificaciones():
+
+    return render_template(
+        'crm/notificaciones.html',
+        active='notificaciones',
+        title='Notificaciones',
+        notificaciones=crm_notificaciones_context()
+    )
 
 # =========================
 # IA WEB

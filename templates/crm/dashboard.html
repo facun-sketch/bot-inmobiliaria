@@ -1,0 +1,85 @@
+{% extends "crm/base.html" %}
+
+{% block content %}
+<div class="page-head">
+    <div class="page-title">
+        <h1>Inicio</h1>
+        <p>Tu centro operativo diario: contactos, agenda y oportunidades en una sola vista.</p>
+    </div>
+    <a class="btn secondary" href="/admin/sync/infocasas">Sync InfoCasas</a>
+</div>
+
+<section class="hero-panel">
+    <div class="hero-row">
+        <a class="ops-card warning" href="/crm/tareas">
+            <div class="ops-top"><div><span>Tareas de hoy</span><small>Seguimientos que vencen hoy</small></div><div class="ops-icon">TH</div></div>
+            <strong>{{ tareas_hoy|length }}</strong>
+        </a>
+        <a class="ops-card" href="/crm/agenda">
+            <div class="ops-top"><div><span>Visitas de hoy</span><small>Agenda del día</small></div><div class="ops-icon">VH</div></div>
+            <strong>{{ visitas_hoy|length }}</strong>
+        </a>
+        <a class="ops-card danger" href="/crm/leads?prioridad=Alta">
+            <div class="ops-top"><div><span>Sin contactar</span><small>Leads esperando respuesta</small></div><div class="ops-icon">SC</div></div>
+            <strong>{{ leads_sin_contactar|length }}</strong>
+        </a>
+        <a class="ops-card soft" href="/crm/leads?estado=Nuevo">
+            <div class="ops-top"><div><span>Leads nuevos</span><small>Entradas recientes</small></div><div class="ops-icon">LN</div></div>
+            <strong>{{ leads_nuevos|length }}</strong>
+        </a>
+        <a class="ops-card" href="/crm/oportunidades">
+            <div class="ops-top"><div><span>Oportunidades</span><small>Pipeline abierto</small></div><div class="ops-icon">OP</div></div>
+            <strong>{{ oportunidades_activas|length }}</strong>
+        </a>
+    </div>
+</section>
+
+<section class="content-grid two">
+    <div>
+        <div class="section-head">
+            <div><h2>Prioridad comercial</h2><p>Contactos que conviene atender primero.</p></div>
+            <a class="btn secondary" href="/crm/leads">Ver leads</a>
+        </div>
+        <div class="lead-grid">
+            {% for lead in leads[:6] %}
+            <a class="lead-card" href="/crm/lead/{{ lead.row_number }}">
+                <div class="lead-main">
+                    <div><h3>{{ lead.nombre or "Sin nombre" }}</h3><p>{{ lead.propiedad or "Sin propiedad" }}</p></div>
+                    <span class="pill {% if lead.prioridad == 'Alta' %}bad{% else %}warn{% endif %}">{{ lead.prioridad }}</span>
+                </div>
+                <div class="meta-line"><span class="pill teal">{{ lead.fuente or "Web" }}</span><span class="pill">{{ lead.estado or "Nuevo" }}</span></div>
+            </a>
+            {% else %}
+            <div class="panel empty"><div><strong>Sin leads pendientes</strong><p class="muted">Cuando entren contactos aparecerán acá.</p></div></div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <aside class="stack">
+        <div class="panel">
+            <div class="section-head"><div><h2>Próximos pasos</h2><p>Tareas vencidas o para hoy.</p></div></div>
+            <div class="stack">
+                {% for tarea in (tareas_hoy + seguimientos_atrasados)[:5] %}
+                <a class="task-card {% if tarea.prioridad == 'Alta' %}priority-high{% elif tarea.prioridad == 'Media' %}priority-medium{% else %}priority-low{% endif %}" href="/crm/tareas">
+                    <h3>{{ tarea.titulo }}</h3>
+                    <p>{{ tarea.cliente or tarea.propiedad or "Sin cliente" }}</p>
+                    <div class="meta-line"><span class="pill">{{ tarea.fecha_limite }}</span><span class="pill">{{ tarea.prioridad }}</span></div>
+                </a>
+                {% else %}
+                <p class="muted">No hay vencimientos críticos.</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="panel">
+            <div class="section-head"><div><h2>Pipeline</h2><p>Distribución por etapa.</p></div></div>
+            <div class="chart-row">
+                {% set max_etapa = etapas.values()|max if etapas else 1 %}
+                {% if max_etapa < 1 %}{% set max_etapa = 1 %}{% endif %}
+                {% for etapa, total in etapas.items() %}
+                <div class="bar"><span>{{ etapa }}</span><div class="bar-track"><div class="bar-fill" style="width:{{ (total / max_etapa * 100)|round(0) }}%"></div></div><strong>{{ total }}</strong></div>
+                {% endfor %}
+            </div>
+        </div>
+    </aside>
+</section>
+{% endblock %}

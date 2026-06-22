@@ -1,0 +1,44 @@
+{% extends "crm/base.html" %}
+
+{% block content %}
+<div class="page-head">
+    <div class="page-title"><h1>{{ lead.nombre or "Contacto" }}</h1><p>{{ lead.propiedad or "Sin propiedad asignada" }}</p></div>
+    <a class="btn secondary" href="/crm/leads">Volver</a>
+</div>
+
+<section class="hero-panel">
+    <div class="lead-main">
+        <div>
+            <div class="meta-line"><span class="pill teal">{{ lead.fuente or "Web" }}</span><span class="pill">{{ lead.estado or "Nuevo" }}</span><span class="pill {% if lead.prioridad == 'Alta' %}bad{% else %}warn{% endif %}">{{ lead.prioridad }}</span></div>
+            <p class="muted" style="margin:10px 0 0">Creado {{ lead.fecha }} · {{ lead.telefono or "Sin teléfono" }} · {{ lead.email or "Sin email" }}</p>
+        </div>
+    </div>
+    <div class="action-bar">
+        <a class="btn" href="https://wa.me/{{ lead.telefono|replace(' ', '') }}" target="_blank">WhatsApp</a>
+        <a class="btn secondary" href="tel:{{ lead.telefono }}">Llamar</a>
+        <a class="btn secondary" href="#agendar-visita">Agendar visita</a>
+        <a class="btn secondary" href="#crear-tarea">Crear tarea</a>
+        <a class="btn secondary" href="#convertir-oportunidad">Convertir oportunidad</a>
+    </div>
+</section>
+
+<section class="profile-summary">
+    <div class="panel next-step"><div class="section-label" style="margin-top:0">Próximo paso</div><strong>{% if tareas %}{{ tareas[0].titulo }}{% else %}Definir seguimiento comercial{% endif %}</strong><p class="muted">{% if tareas %}{{ tareas[0].fecha_limite }} · {{ tareas[0].estado }}{% else %}Crear una tarea o agendar una visita para no perder el contacto.{% endif %}</p></div>
+    <div class="panel"><div class="section-label" style="margin-top:0">Última actividad</div><strong>{% if notas %}{{ notas[-1].tipo }}{% else %}Mensaje inicial{% endif %}</strong><p class="muted">{% if notas %}{{ notas[-1].contenido }}{% else %}{{ lead.mensaje or "Sin actividad registrada." }}{% endif %}</p></div>
+    <div class="panel"><div class="section-label" style="margin-top:0">Contacto</div><div class="info-list"><div><span>Teléfono</span><strong>{{ lead.telefono or "-" }}</strong></div><div><span>Email</span><strong>{{ lead.email or "-" }}</strong></div><div><span>Propiedad</span><strong>{{ lead.propiedad or "-" }}</strong></div></div></div>
+</section>
+
+<section class="profile-grid" style="margin-top:14px">
+    <div class="profile-main">
+        <div class="panel"><div class="section-head"><div><h2>Timeline</h2><p>Notas, llamadas, visitas y cambios comerciales.</p></div></div><div class="timeline">{% for nota in notas %}<div class="timeline-item"><div class="timeline-dot"></div><div class="row-card"><div class="row-card-head"><strong>{{ nota.tipo }}</strong><small class="muted">{{ nota.fecha }}</small></div><p>{{ nota.contenido }}</p></div></div>{% else %}<div class="timeline-item"><div class="timeline-dot"></div><div class="row-card"><strong>Consulta recibida</strong><p>{{ lead.mensaje or "Sin mensaje registrado." }}</p></div></div>{% endfor %}</div></div>
+        <div class="grid cols-2"><div class="panel"><div class="section-head"><div><h2>Tareas asociadas</h2></div></div><div class="stack">{% for tarea in tareas %}<a class="task-card" href="/crm/tareas"><h3>{{ tarea.titulo }}</h3><p>{{ tarea.fecha_limite }} · {{ tarea.estado }}</p></a>{% else %}<p class="muted">No hay tareas asociadas.</p>{% endfor %}</div></div><div class="panel"><div class="section-head"><div><h2>Oportunidades</h2></div></div><div class="stack">{% for oportunidad in oportunidades %}<a class="opp-card-pro" href="/crm/oportunidades"><h3>{{ oportunidad.propiedad or oportunidad.nombre }}</h3><p>{{ oportunidad.etapa }} · {{ oportunidad.valor }}</p></a>{% else %}<p class="muted">No hay oportunidades asociadas.</p>{% endfor %}</div></div></div>
+    </div>
+    <aside class="profile-side">
+        <div class="panel"><div class="section-label" style="margin-top:0">Crear nota</div><form method="POST" action="/crm/lead/{{ lead.row_number }}"><input type="hidden" name="action" value="crear_nota"><label>Tipo</label><select name="tipo"><option value="Nota">Nota</option><option value="Mensaje">Mensaje</option><option value="Seguimiento">Seguimiento</option></select><label>Detalle</label><textarea name="contenido" placeholder="Registrar nota interna"></textarea><button class="btn" type="submit">Crear nota</button></form></div>
+        <div class="panel"><div class="section-label" style="margin-top:0">Registrar llamada</div><form method="POST" action="/crm/lead/{{ lead.row_number }}"><input type="hidden" name="action" value="registrar_llamada"><label>Resultado</label><select name="resultado"><option value="Contestó">Contestó</option><option value="No contestó">No contestó</option><option value="Solicitó información">Solicitó información</option><option value="Agendar seguimiento">Agendar seguimiento</option></select><label>Observación</label><textarea name="observacion" placeholder="Qué se conversó"></textarea><button class="btn" type="submit">Registrar llamada</button></form></div>
+        <div class="panel" id="crear-tarea"><div class="section-label" style="margin-top:0">Crear tarea</div><form method="POST" action="/crm/lead/{{ lead.row_number }}"><input type="hidden" name="action" value="crear_tarea"><label>Tarea</label><input name="titulo" placeholder="Ej: llamar para seguimiento"><label>Fecha límite</label><input name="fecha_limite" type="date" required><label>Prioridad</label><select name="prioridad">{% for prioridad in prioridades %}<option value="{{ prioridad }}">{{ prioridad }}</option>{% endfor %}</select><label>Notas</label><input name="notas"><button class="btn" type="submit">Crear tarea</button></form></div>
+        <div class="panel" id="agendar-visita"><div class="section-label" style="margin-top:0">Agendar visita</div><form method="POST" action="/crm/lead/{{ lead.row_number }}"><input type="hidden" name="action" value="agendar_visita"><label>Fecha</label><input name="fecha" type="date" required><label>Hora</label><input name="hora" type="time" required><label>Notas</label><input name="notas"><button class="btn" type="submit">Agendar visita</button></form></div>
+        <div class="panel" id="convertir-oportunidad"><div class="section-label" style="margin-top:0">Convertir a oportunidad</div><form method="POST" action="/crm/lead/{{ lead.row_number }}"><input type="hidden" name="action" value="convertir_oportunidad"><label>Etapa</label><select name="etapa">{% for etapa in etapas %}<option value="{{ etapa }}">{{ etapa }}</option>{% endfor %}</select><label>Valor estimado</label><input name="valor"><label>Notas comerciales</label><textarea name="notas" placeholder="Motivo de la oportunidad"></textarea><button class="btn" type="submit">Convertir a oportunidad</button></form></div>
+    </aside>
+</section>
+{% endblock %}

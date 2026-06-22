@@ -1,0 +1,35 @@
+{% extends "crm/base.html" %}
+
+{% block content %}
+<div class="page-head">
+    <div class="page-title">
+        <h1>Mi Cuenta</h1>
+        <p>Actualizá el usuario y la contraseña de acceso al CRM.</p>
+    </div>
+    <a class="btn secondary" href="/crm/logout">Cerrar sesión</a>
+</div>
+
+<div class="panel" style="max-width:620px">
+    {% if success %}<div class="pill good" style="margin-bottom:12px">{{ success }}</div>{% endif %}
+    {% if error %}<div class="pill bad" style="margin-bottom:12px">{{ error }}</div>{% endif %}
+
+    <form method="post">
+        <label for="usuario">Usuario</label>
+        <input id="usuario" name="usuario" value="{{ usuario }}" required>
+
+        <label for="password_actual">Contraseña actual</label>
+        <input id="password_actual" name="password_actual" type="password" autocomplete="current-password" required>
+
+        <label for="password_nueva">Nueva contraseña</label>
+        <input id="password_nueva" name="password_nueva" type="password" autocomplete="new-password" placeholder="Dejar vacío para mantener la actual">
+
+        <label for="password_confirmar">Confirmar nueva contraseña</label>
+        <input id="password_confirmar" name="password_confirmar" type="password" autocomplete="new-password">
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+            <button class="btn" type="submit">Guardar cambios</button>
+            <a class="btn secondary" href="/crm/dashboard">Volver</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

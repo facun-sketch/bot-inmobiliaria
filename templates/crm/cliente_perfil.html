@@ -1,0 +1,58 @@
+{% extends "crm/base.html" %}
+
+{% block content %}
+<div class="page-head">
+    <div class="page-title">
+        <h1>{{ cliente.nombre }}</h1>
+        <p>{{ cliente.tipo }} · {{ cliente.propiedad or "Sin propiedad asociada" }}</p>
+    </div>
+    <a class="btn secondary" href="/crm/clientes">Volver</a>
+</div>
+
+<section class="profile-grid">
+    <div class="profile-main">
+        <div class="panel">
+            <div class="section-label" style="margin-top:0">Información del cliente</div>
+            <div class="grid cols-3">
+                <div><strong>Teléfono</strong><p class="muted">{{ cliente.telefono or "Sin teléfono" }}</p></div>
+                <div><strong>Email</strong><p class="muted">{{ cliente.email or "Sin email" }}</p></div>
+                <div><strong>Tipo</strong><p><span class="pill teal">{{ cliente.tipo }}</span></p></div>
+                <div><strong>Fuente</strong><p class="muted">{{ cliente.fuente or "Manual" }}</p></div>
+                <div><strong>Propiedad</strong><p class="muted">{{ cliente.propiedad }}</p></div>
+                <div><strong>Creación</strong><p class="muted">{{ cliente.fecha_creacion }}</p></div>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="section-label" style="margin-top:0">Historial</div>
+            <p>{{ cliente.historial or "Sin historial registrado." }}</p>
+        </div>
+        <div class="panel">
+            <div class="section-label" style="margin-top:0">Notas internas</div>
+            <p>{{ cliente.notas or "Sin notas internas." }}</p>
+        </div>
+    </div>
+    <aside class="profile-side">
+        <div class="panel">
+            <div class="section-label" style="margin-top:0">Tareas asociadas</div>
+            <div class="stack">
+                {% for tarea in tareas %}
+                <div class="row-card">
+                    <strong>{{ tarea.titulo }}</strong>
+                    <p>{{ tarea.fecha_limite }} · {{ tarea.estado }}</p>
+                </div>
+                {% else %}
+                <p class="muted">No hay tareas asociadas.</p>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="panel">
+            <div class="section-label" style="margin-top:0">Acciones</div>
+            <div class="stack">
+                <a class="btn secondary" href="/crm/tareas">Crear tarea</a>
+                <a class="btn secondary" href="/crm/agenda">Agendar visita</a>
+                <a class="btn secondary" href="/crm/oportunidades">Nueva oportunidad</a>
+            </div>
+        </div>
+    </aside>
+</section>
+{% endblock %}
