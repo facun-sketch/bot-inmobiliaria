@@ -2369,42 +2369,9 @@ def crm_parse_fecha_hora_tarea(tarea):
 
     return None
 
-def enviar_email_recordatorio_tarea(tarea):
+def crm_email_recordatorio_body(tarea):
 
-    auth = crm_auth_leer()
-
-    if auth.get('recordatorios_activos') != 'Si':
-        print('Recordatorio email desactivado')
-        return False
-
-    email_to = auth.get('email_recordatorios') or os.getenv('EMAIL_RECORDATORIOS')
-
-    if not email_to:
-        print('Recordatorio sin email destino configurado')
-        return False
-
-    import smtplib
-    from email.message import EmailMessage
-
-    smtp_host = os.getenv('SMTP_HOST', '').strip()
-    smtp_port_raw = os.getenv('SMTP_PORT', '587').strip() or '587'
-    smtp_user = os.getenv('SMTP_USER', '').strip()
-    smtp_password = os.getenv('SMTP_PASSWORD', '').strip()
-    email_from = (os.getenv('EMAIL_FROM') or smtp_user).strip()
-
-    print(f'Recordatorio SMTP config: SMTP_HOST={smtp_host or "NO_CONFIGURADO"}, SMTP_PORT={smtp_port_raw}, SMTP_USER={smtp_user or "NO_CONFIGURADO"}, EMAIL_FROM={email_from or "NO_CONFIGURADO"}')
-
-    try:
-        smtp_port = int(smtp_port_raw)
-    except (TypeError, ValueError):
-        print(f'Error SMTP: SMTP_PORT inválido ({smtp_port_raw}). No se envió email de recordatorio.')
-        return False
-
-    if not smtp_host or not smtp_user or not smtp_password:
-        print('Error SMTP: faltan variables SMTP. No se envió email de recordatorio.')
-        return False
-
-    body = f"""
+    return f"""
 Recordatorio de tarea CRM.
 
 Nombre de la tarea: {tarea.get('titulo', '')}
@@ -2414,25 +2381,87 @@ Fecha: {tarea.get('fecha_limite', '')}
 Hora: {tarea.get('hora_limite', '')}
 """
 
-    msg = EmailMessage()
-    msg['Subject'] = 'Recordatorio CRM - Tarea pendiente'
-    msg['From'] = email_from
-    msg['To'] = email_to
-    msg.set_content(body)
 
-    print('Intentando enviar email')
+def crm_enviar_email_resend(email_to, subject, body):
+
+    resend_api_key = os.getenv('RESEND_API_KEY', '').strip()
+    resend_from = os.getenv('RESEND_FROM_EMAIL', '').strip() or os.getenv('EMAIL_FROM', '').strip() or 'onboarding@resend.dev'
+
+    if not resend_api_key:
+        mensaje = 'Advertencia Resend: falta RESEND_API_KEY. No se envió email.'
+        print(mensaje)
+        return False, {'error': mensaje}
+
+    if not email_to:
+        mensaje = 'Advertencia Resend: falta email destino. No se envió email.'
+        print(mensaje)
+        return False, {'error': mensaje}
+
+    import requests
+
+    payload = {
+        'from': resend_from,
+        'to': [email_to],
+        'subject': subject,
+        'text': body
+    }
+    headers = {
+        'Authorization': f'Bearer {resend_api_key}',
+        'Content-Type': 'application/json'
+    }
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.send_message(msg)
-        print('Email enviado correctamente')
-        return True
+        print('Intentando enviar email por Resend')
+        response = requests.post(
+            'https://api.resend.com/emails',
+            headers=headers,
+            json=payload,
+            timeout=20
+        )
+
+        try:
+            data = response.json()
+        except ValueError:
+            data = {'raw_response': response.text}
+
+        data['status_code'] = response.status_code
+
+        if 200 <= response.status_code < 300:
+            print(f"Email enviado correctamente por Resend: {data.get('id', '')}")
+            return True, data
+
+        print(f'Error Resend: {data}')
+        return False, data
     except Exception as e:
-        print(f'Error SMTP: {e}')
+        print(f'Error Resend: {e}')
+        return False, {'error': str(e)}
+
+
+def enviar_email_recordatorio_tarea(tarea):
+
+    auth = crm_auth_leer()
+
+    if auth.get('recordatorios_activos') != 'Si':
+        print('Recordatorio email desactivado')
         return False
 
+    email_to = (auth.get('email_recordatorios') or os.getenv('EMAIL_RECORDATORIOS') or '').strip()
+
+    if not email_to:
+        print('Recordatorio sin email destino configurado')
+        return False
+
+    body = crm_email_recordatorio_body(tarea)
+    ok, respuesta = crm_enviar_email_resend(
+        email_to,
+        'Recordatorio CRM - Tarea pendiente',
+        body
+    )
+
+    if not ok:
+        print(f'Error Resend recordatorio: {respuesta}')
+
+    return ok
 def crm_actualizar_recordatorios_tareas(tareas):
 
     ahora = datetime.now()
@@ -3332,6 +3361,60 @@ def crm_socket_test(host, port):
     return resultado
 
 
+
+
+@app.route('/crm/test-resend', methods=['GET', 'POST'])
+def crm_test_resend():
+
+    auth = crm_auth_leer()
+    email_to = (auth.get('email_recordatorios') or os.getenv('EMAIL_RECORDATORIOS') or '').strip()
+    resultado = None
+    ok = False
+
+    if request.method == 'POST':
+        ok, resultado = crm_enviar_email_resend(
+            email_to,
+            'Prueba CRM - Resend',
+            'Este es un correo de prueba del CRM enviado por Resend.'
+        )
+
+    resend_api_key = os.getenv('RESEND_API_KEY', '').strip()
+    resend_from = os.getenv('RESEND_FROM_EMAIL', '').strip() or os.getenv('EMAIL_FROM', '').strip() or 'onboarding@resend.dev'
+    html = '''
+    <!doctype html>
+    <html lang="es">
+    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test Resend CRM</title></head>
+    <body style="font-family:Arial,sans-serif;background:#f6f7f7;color:#222;padding:24px">
+        <main style="max-width:820px;margin:auto;background:white;border:1px solid #e1e5e7;border-radius:8px;padding:20px">
+            <h1>Test Resend CRM</h1>
+            <p>Ruta temporal protegida por login CRM.</p>
+            <ul>
+                <li><strong>RESEND_API_KEY configurada:</strong> {{ resend_configurado }}</li>
+                <li><strong>Remitente:</strong> {{ remitente }}</li>
+                <li><strong>Email destino:</strong> {{ destino }}</li>
+            </ul>
+            {% if resultado %}
+                <p style="padding:12px;border-radius:6px;background:{{ '#e7f5ec' if ok else '#fde7e9' }}"><strong>{{ 'Email enviado correctamente' if ok else 'Error Resend' }}</strong></p>
+                <p><strong>ID del email:</strong> {{ resultado.get('id', '-') }}</p>
+                <h2>Respuesta completa de Resend</h2>
+                <pre style="white-space:pre-wrap;background:#f6f7f7;padding:12px;border-radius:6px">{{ respuesta }}</pre>
+            {% endif %}
+            <form method="post"><button type="submit" style="background:#08747f;color:white;border:0;border-radius:6px;padding:10px 14px;cursor:pointer">Enviar correo de prueba</button></form>
+            <p><a href="/crm/cuenta">Volver a Mi Cuenta</a></p>
+        </main>
+    </body>
+    </html>
+    '''
+    return render_template_string(
+        html,
+        resend_configurado='Si' if resend_api_key else 'No',
+        remitente=crm_mask_secret(resend_from),
+        destino=crm_mask_secret(email_to),
+        resultado=resultado,
+        respuesta=json.dumps(resultado, ensure_ascii=False, indent=2) if resultado else '',
+        ok=ok
+    )
+
 @app.route('/crm/test-smtp-network')
 def crm_test_smtp_network():
 
@@ -4081,6 +4164,7 @@ if __name__ == '__main__':
         port=int(os.getenv("PORT", 5000)),
         debug=True
     )
+
 
 
 
