@@ -2384,14 +2384,20 @@ def enviar_email_recordatorio_tarea(tarea):
     import smtplib
     from email.message import EmailMessage
 
-    smtp_host = os.getenv('SMTP_HOST')
-    smtp_port = int(os.getenv('SMTP_PORT', 587))
-    smtp_user = os.getenv('SMTP_USER')
-    smtp_password = os.getenv('SMTP_PASSWORD')
-    email_from = os.getenv('EMAIL_FROM', smtp_user)
+    smtp_host = os.getenv('SMTP_HOST', '').strip()
+    smtp_port_raw = os.getenv('SMTP_PORT', '587').strip() or '587'
+    smtp_user = os.getenv('SMTP_USER', '').strip()
+    smtp_password = os.getenv('SMTP_PASSWORD', '').strip()
+    email_from = (os.getenv('EMAIL_FROM') or smtp_user).strip()
+
+    try:
+        smtp_port = int(smtp_port_raw)
+    except (TypeError, ValueError):
+        print(f'Advertencia CRM: SMTP_PORT inválido ({smtp_port_raw}). No se envió email de recordatorio.')
+        return False
 
     if not smtp_host or not smtp_user or not smtp_password:
-        print('Recordatorios CRM configurados, pero faltan variables SMTP')
+        print('Advertencia CRM: faltan variables SMTP. No se envió email de recordatorio.')
         return False
 
     body = f"""
@@ -3820,6 +3826,7 @@ if __name__ == '__main__':
         port=int(os.getenv("PORT", 5000)),
         debug=True
     )
+
 
 
 
