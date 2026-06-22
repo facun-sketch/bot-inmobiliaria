@@ -14,8 +14,9 @@
         </div>
     </div>
     <div class="action-bar">
-        <a class="btn" href="https://wa.me/{{ lead.telefono|replace(' ', '') }}" target="_blank">WhatsApp</a>
-        <a class="btn secondary" href="tel:{{ lead.telefono }}">Llamar</a>
+        {% if lead.telefono %}<a class="btn" href="https://wa.me/{{ lead.telefono|replace(' ', '')|replace('+', '') }}" target="_blank">WhatsApp</a>{% endif %}
+        {% if lead.telefono %}<a class="btn secondary" href="tel:{{ lead.telefono }}">Llamar</a>{% endif %}
+        {% if lead.email %}<a class="btn secondary" href="mailto:{{ lead.email }}">Email</a>{% endif %}
         <a class="btn secondary" href="#agendar-visita">Agendar visita</a>
         <a class="btn secondary" href="#crear-tarea">Crear tarea</a>
         <a class="btn secondary" href="#convertir-oportunidad">Convertir oportunidad</a>
@@ -36,9 +37,11 @@
     <aside class="profile-side">
         <div class="panel"><div class="section-label" style="margin-top:0">Crear nota</div><form method="POST" action="/crm/lead/{{ lead.row_number }}"><input type="hidden" name="action" value="crear_nota"><label>Tipo</label><select name="tipo"><option value="Nota">Nota</option><option value="Mensaje">Mensaje</option><option value="Seguimiento">Seguimiento</option></select><label>Detalle</label><textarea name="contenido" placeholder="Registrar nota interna"></textarea><button class="btn" type="submit">Crear nota</button></form></div>
         <div class="panel"><div class="section-label" style="margin-top:0">Registrar llamada</div><form method="POST" action="/crm/lead/{{ lead.row_number }}"><input type="hidden" name="action" value="registrar_llamada"><label>Resultado</label><select name="resultado"><option value="Contestó">Contestó</option><option value="No contestó">No contestó</option><option value="Solicitó información">Solicitó información</option><option value="Agendar seguimiento">Agendar seguimiento</option></select><label>Observación</label><textarea name="observacion" placeholder="Qué se conversó"></textarea><button class="btn" type="submit">Registrar llamada</button></form></div>
-        <div class="panel" id="crear-tarea"><div class="section-label" style="margin-top:0">Crear tarea</div><form method="POST" action="/crm/lead/{{ lead.row_number }}"><input type="hidden" name="action" value="crear_tarea"><label>Tarea</label><input name="titulo" placeholder="Ej: llamar para seguimiento"><label>Fecha límite</label><input name="fecha_limite" type="date" required><label>Prioridad</label><select name="prioridad">{% for prioridad in prioridades %}<option value="{{ prioridad }}">{{ prioridad }}</option>{% endfor %}</select><label>Notas</label><input name="notas"><button class="btn" type="submit">Crear tarea</button></form></div>
+        <div class="panel" id="crear-tarea"><div class="section-label" style="margin-top:0">Crear tarea</div><form method="POST" action="/crm/lead/{{ lead.row_number }}"><input type="hidden" name="action" value="crear_tarea"><label>Tarea</label><input name="titulo" placeholder="Ej: llamar para seguimiento"><label>Fecha límite</label><input name="fecha_limite" type="date" required><label>Hora límite</label><input name="hora_limite" type="time"><label>Prioridad</label><select name="prioridad">{% for prioridad in prioridades %}<option value="{{ prioridad }}">{{ prioridad }}</option>{% endfor %}</select><label>Notas</label><input name="notas"><button class="btn" type="submit">Crear tarea</button></form></div>
         <div class="panel" id="agendar-visita"><div class="section-label" style="margin-top:0">Agendar visita</div><form method="POST" action="/crm/lead/{{ lead.row_number }}"><input type="hidden" name="action" value="agendar_visita"><label>Fecha</label><input name="fecha" type="date" required><label>Hora</label><input name="hora" type="time" required><label>Notas</label><input name="notas"><button class="btn" type="submit">Agendar visita</button></form></div>
         <div class="panel" id="convertir-oportunidad"><div class="section-label" style="margin-top:0">Convertir a oportunidad</div><form method="POST" action="/crm/lead/{{ lead.row_number }}"><input type="hidden" name="action" value="convertir_oportunidad"><label>Etapa</label><select name="etapa">{% for etapa in etapas %}<option value="{{ etapa }}">{{ etapa }}</option>{% endfor %}</select><label>Valor estimado</label><input name="valor"><label>Notas comerciales</label><textarea name="notas" placeholder="Motivo de la oportunidad"></textarea><button class="btn" type="submit">Convertir a oportunidad</button></form></div>
     </aside>
 </section>
 {% endblock %}
+
+

@@ -3,8 +3,42 @@
 {% block content %}
 <div class="page-head"><div class="page-title"><h1>Notificaciones</h1><p>Leads nuevos, tareas vencidas y visitas próximas agrupadas por prioridad.</p></div></div>
 
+<section class="notification-group">
+    <div class="section-head"><div><h2>Vence ahora</h2><p>Tareas que llegaron a su hora límite.</p></div></div>
+    {% for tarea in tareas_vence_ahora %}
+    <article class="notification-card"><div class="notification-mark danger"></div><div><span class="pill bad">Vence ahora</span><h3 style="margin:8px 0 4px;font-size:16px">{{ tarea.titulo }}</h3><p class="muted" style="margin:0">{{ tarea.cliente or tarea.propiedad or "Sin cliente" }}</p><small class="muted">{{ tarea.fecha_limite }}{% if tarea.hora_limite %} {{ tarea.hora_limite }}{% endif %}</small></div></article>
+    {% else %}<div class="panel"><p class="muted">No hay tareas venciendo en este momento.</p></div>{% endfor %}
+</section>
+
+<section class="notification-group">
+    <div class="section-head"><div><h2>Próxima hora</h2><p>Recordatorios que están por vencer.</p></div></div>
+    {% for tarea in tareas_proxima_hora %}
+    <article class="notification-card"><div class="notification-mark warning"></div><div><span class="pill teal">Próxima hora</span><h3 style="margin:8px 0 4px;font-size:16px">{{ tarea.titulo }}</h3><p class="muted" style="margin:0">{{ tarea.cliente or tarea.propiedad or "Sin cliente" }}</p><small class="muted">{{ tarea.fecha_limite }}{% if tarea.hora_limite %} {{ tarea.hora_limite }}{% endif %}</small></div></article>
+    {% else %}<div class="panel"><p class="muted">No hay tareas próximas en la siguiente hora.</p></div>{% endfor %}
+</section>
+
+<section class="notification-group">
+    <div class="section-head"><div><h2>Prioridad Alta</h2><p>Tareas que conviene resolver primero.</p></div></div>
+    {% for tarea in tareas_por_prioridad.Alta[:8] %}<article class="notification-card"><div class="notification-mark danger"></div><div><span class="pill bad">Alta</span><h3 style="margin:8px 0 4px;font-size:16px">{{ tarea.titulo }}</h3><p class="muted" style="margin:0">{{ tarea.cliente or tarea.propiedad or "Sin cliente" }}</p><small class="muted">{{ tarea.fecha_limite }}{% if tarea.hora_limite %} {{ tarea.hora_limite }}{% endif %}</small></div></article>{% else %}<div class="panel"><p class="muted">No hay tareas de prioridad alta.</p></div>{% endfor %}
+</section>
+<section class="notification-group">
+    <div class="section-head"><div><h2>Prioridad Media</h2><p>Seguimientos importantes para ordenar el día.</p></div></div>
+    {% for tarea in tareas_por_prioridad.Media[:8] %}<article class="notification-card"><div class="notification-mark warning"></div><div><span class="pill teal">Media</span><h3 style="margin:8px 0 4px;font-size:16px">{{ tarea.titulo }}</h3><p class="muted" style="margin:0">{{ tarea.cliente or tarea.propiedad or "Sin cliente" }}</p><small class="muted">{{ tarea.fecha_limite }}{% if tarea.hora_limite %} {{ tarea.hora_limite }}{% endif %}</small></div></article>{% else %}<div class="panel"><p class="muted">No hay tareas de prioridad media.</p></div>{% endfor %}
+</section>
+<section class="notification-group">
+    <div class="section-head"><div><h2>Prioridad Baja</h2><p>Tareas que pueden avanzar después.</p></div></div>
+    {% for tarea in tareas_por_prioridad.Baja[:8] %}<article class="notification-card"><div class="notification-mark success"></div><div><span class="pill good">Baja</span><h3 style="margin:8px 0 4px;font-size:16px">{{ tarea.titulo }}</h3><p class="muted" style="margin:0">{{ tarea.cliente or tarea.propiedad or "Sin cliente" }}</p><small class="muted">{{ tarea.fecha_limite }}{% if tarea.hora_limite %} {{ tarea.hora_limite }}{% endif %}</small></div></article>{% else %}<div class="panel"><p class="muted">No hay tareas de prioridad baja.</p></div>{% endfor %}
+</section>
 {% set hoy = notificaciones[:6] %}
 <section class="notification-group"><div class="section-head"><div><h2>Hoy</h2><p>Alertas que requieren atención.</p></div></div>{% for item in hoy %}<article class="notification-card"><div class="notification-mark {% if item.nivel == 'danger' %}danger{% elif item.nivel == 'success' %}success{% elif item.nivel == 'warning' %}warning{% endif %}"></div><div><span class="pill {% if item.nivel == 'danger' %}bad{% elif item.nivel == 'success' %}good{% else %}teal{% endif %}">{{ item.tipo }}</span><h3 style="margin:8px 0 4px;font-size:16px">{{ item.titulo }}</h3><p class="muted" style="margin:0">{{ item.detalle }}</p><small class="muted">{{ item.fecha }}</small></div></article>{% else %}<div class="panel empty"><div><strong>No hay notificaciones pendientes</strong><p class="muted">Cuando entren leads, tareas o visitas, aparecerán aquí.</p></div></div>{% endfor %}</section>
-<section class="notification-group"><div class="section-head"><div><h2>Ayer</h2><p>Sin novedades pendientes.</p></div></div><div class="panel"><p class="muted">No hay alertas de ayer.</p></div></section>
+
+<section class="notification-group">
+    <div class="section-head"><div><h2>Vencidas</h2><p>Tareas que pasaron la fecha u hora límite.</p></div></div>
+    {% for tarea in seguimientos_atrasados %}
+    <article class="notification-card"><div class="notification-mark danger"></div><div><span class="pill bad">Vencida</span><h3 style="margin:8px 0 4px;font-size:16px">{{ tarea.titulo }}</h3><p class="muted" style="margin:0">{{ tarea.cliente or tarea.propiedad or "Sin cliente" }}</p><small class="muted">{{ tarea.fecha_limite }}{% if tarea.hora_limite %} {{ tarea.hora_limite }}{% endif %}</small></div></article>
+    {% else %}<div class="panel"><p class="muted">No hay tareas vencidas.</p></div>{% endfor %}
+</section>
+
 <section class="notification-group"><div class="section-head"><div><h2>Esta semana</h2><p>Resumen de actividad comercial.</p></div></div><div class="panel"><p class="muted">Las próximas visitas y seguimientos se muestran automáticamente cuando existan.</p></div></section>
 {% endblock %}
+

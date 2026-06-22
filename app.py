@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import os
 import json
 import sqlite3
+import io
 from werkzeug.security import check_password_hash, generate_password_hash
 
 print("APP IMPORTADA")
@@ -1994,7 +1995,7 @@ def crm_importar_csv_si_existe(collection, archivo, headers):
 
 CRM_AUTH_CSV = 'crm_auth.csv'
 CRM_AUTH_COLLECTION = 'crm_auth'
-CRM_AUTH_HEADERS = ['username', 'password_hash', 'updated_at']
+CRM_AUTH_HEADERS = ['username', 'password_hash', 'email_recordatorios', 'recordatorios_activos', 'updated_at']
 CRM_DEFAULT_USERNAME = os.getenv('CRM_DEFAULT_USERNAME', 'silviamar23!')
 CRM_DEFAULT_PASSWORD_HASH = os.getenv(
     'CRM_DEFAULT_PASSWORD_HASH',
@@ -2007,6 +2008,8 @@ def crm_auth_crear_default():
     auth = {
         'username': CRM_DEFAULT_USERNAME,
         'password_hash': CRM_DEFAULT_PASSWORD_HASH,
+        'email_recordatorios': os.getenv('EMAIL_RECORDATORIOS', ''),
+        'recordatorios_activos': os.getenv('CRM_RECORDATORIOS_ACTIVOS', 'No'),
         'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
 
@@ -2021,15 +2024,19 @@ def crm_auth_leer():
 
     for row in rows:
         if row.get('username') and row.get('password_hash'):
+            row.setdefault('email_recordatorios', os.getenv('EMAIL_RECORDATORIOS', ''))
+            row.setdefault('recordatorios_activos', os.getenv('CRM_RECORDATORIOS_ACTIVOS', 'No'))
             return row
 
     return crm_auth_crear_default()
 
 
-def crm_auth_guardar(username, password_hash):
+def crm_auth_guardar(username, password_hash, email_recordatorios='', recordatorios_activos='No'):
     auth = {
         'username': username,
         'password_hash': password_hash,
+        'email_recordatorios': email_recordatorios,
+        'recordatorios_activos': recordatorios_activos,
         'updated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
 
@@ -2051,6 +2058,34 @@ def crm_sesion_expirada():
 
     return datetime.now() - ultima > app.permanent_session_lifetime
 
+
+def crm_verificar_recordatorios_globales():
+
+    ahora = datetime.now()
+    ultimo = app.config.get('CRM_RECORDATORIOS_ULTIMA_REVISION')
+
+    if ultimo and (ahora - ultimo).total_seconds() < 60:
+        return
+
+    app.config['CRM_RECORDATORIOS_ULTIMA_REVISION'] = ahora
+
+    try:
+        tareas = crm_leer_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS)
+        if crm_actualizar_recordatorios_tareas(tareas):
+            crm_escribir_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tareas)
+    except Exception as e:
+        print(f'Error verificando recordatorios CRM: {e}')
+
+
+@app.before_request
+def revisar_recordatorios_crm():
+    ruta = request.path or '/'
+
+    if ruta.startswith('/static'):
+        return None
+
+    crm_verificar_recordatorios_globales()
+    return None
 
 @app.before_request
 def proteger_crm_privado():
@@ -2124,6 +2159,8 @@ def crm_cuenta():
         password_actual = request.form.get('password_actual', '')
         password_nueva = request.form.get('password_nueva', '')
         password_confirmar = request.form.get('password_confirmar', '')
+        email_recordatorios = request.form.get('email_recordatorios', '').strip()
+        recordatorios_activos = 'Si' if request.form.get('recordatorios_activos') == 'Si' else 'No'
 
         if not check_password_hash(auth.get('password_hash', ''), password_actual):
             error = 'La contraseña actual no es correcta.'
@@ -2136,7 +2173,7 @@ def crm_cuenta():
             if password_nueva:
                 password_hash = generate_password_hash(password_nueva)
 
-            auth = crm_auth_guardar(usuario, password_hash)
+            auth = crm_auth_guardar(usuario, password_hash, email_recordatorios, recordatorios_activos)
             session['crm_user'] = usuario
             success = 'Cuenta actualizada correctamente.'
 
@@ -2145,6 +2182,8 @@ def crm_cuenta():
         active='cuenta',
         title='Mi Cuenta',
         usuario=auth.get('username', ''),
+        email_recordatorios=auth.get('email_recordatorios', ''),
+        recordatorios_activos=auth.get('recordatorios_activos', 'No'),
         error=error,
         success=success
     )
@@ -2187,11 +2226,13 @@ CRM_TAREA_HEADERS = [
     'cliente',
     'propiedad',
     'fecha_limite',
+    'hora_limite',
     'prioridad',
     'estado',
     'recordatorio',
     'notas',
-    'fecha_creacion'
+    'fecha_creacion',
+    'recordatorio_enviado'
 ]
 
 CRM_CLIENTE_HEADERS = [
@@ -2245,7 +2286,8 @@ CRM_PRIORIDADES = [
 CRM_ESTADOS_TAREA = [
     'Pendiente',
     'En curso',
-    'Completada'
+    'Completada',
+    'Vencida'
 ]
 
 CRM_ESTADOS_VISITA = [
@@ -2306,6 +2348,136 @@ def crm_parse_fecha(valor):
 
     return None
 
+def crm_parse_fecha_hora_tarea(tarea):
+
+    fecha = tarea.get('fecha_limite', '').strip()
+    hora = tarea.get('hora_limite', '').strip()
+
+    if not fecha:
+        return None
+
+    if hora:
+        try:
+            return datetime.strptime(f'{fecha} {hora}', '%Y-%m-%d %H:%M')
+        except ValueError:
+            pass
+
+    fecha_dt = crm_parse_fecha(fecha)
+
+    if fecha_dt:
+        return fecha_dt.replace(hour=23, minute=59, second=0, microsecond=0)
+
+    return None
+
+def enviar_email_recordatorio_tarea(tarea):
+
+    auth = crm_auth_leer()
+
+    if auth.get('recordatorios_activos') != 'Si':
+        return False
+
+    email_to = auth.get('email_recordatorios') or os.getenv('EMAIL_RECORDATORIOS')
+
+    if not email_to:
+        return False
+
+    import smtplib
+    from email.message import EmailMessage
+
+    smtp_host = os.getenv('SMTP_HOST')
+    smtp_port = int(os.getenv('SMTP_PORT', 587))
+    smtp_user = os.getenv('SMTP_USER')
+    smtp_password = os.getenv('SMTP_PASSWORD')
+    email_from = os.getenv('EMAIL_FROM', smtp_user)
+
+    if not smtp_host or not smtp_user or not smtp_password:
+        print('Recordatorios CRM configurados, pero faltan variables SMTP')
+        return False
+
+    body = f"""
+Recordatorio de tarea CRM.
+
+Nombre de la tarea: {tarea.get('titulo', '')}
+Cliente: {tarea.get('cliente', '')}
+Propiedad: {tarea.get('propiedad', '')}
+Fecha: {tarea.get('fecha_limite', '')}
+Hora: {tarea.get('hora_limite', '')}
+"""
+
+    msg = EmailMessage()
+    msg['Subject'] = 'Recordatorio CRM - Tarea pendiente'
+    msg['From'] = email_from
+    msg['To'] = email_to
+    msg.set_content(body)
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.send_message(msg)
+        print('Email de recordatorio enviado correctamente')
+        return True
+    except Exception as e:
+        print(f'Error enviando recordatorio CRM: {e}')
+        return False
+def crm_actualizar_recordatorios_tareas(tareas):
+
+    ahora = datetime.now()
+    cambios = False
+
+    for tarea in tareas:
+        if tarea.get('estado') == 'Completada':
+            continue
+
+        vencimiento = crm_parse_fecha_hora_tarea(tarea)
+
+        if not vencimiento:
+            continue
+
+        if vencimiento <= ahora:
+            if tarea.get('recordatorio_enviado') != 'Si':
+                if enviar_email_recordatorio_tarea(tarea):
+                    tarea['recordatorio_enviado'] = 'Si'
+                    cambios = True
+
+            if tarea.get('estado') != 'Vencida':
+                tarea['estado'] = 'Vencida'
+                cambios = True
+
+    return cambios
+
+def crm_tareas_por_vencimiento(tareas):
+
+    ahora = datetime.now()
+    en_una_hora = ahora + timedelta(hours=1)
+    hoy = ahora.date()
+    grupos = {
+        'vence_ahora': [],
+        'proxima_hora': [],
+        'hoy': [],
+        'vencidas': []
+    }
+
+    for tarea in tareas:
+        if tarea.get('estado') == 'Completada':
+            continue
+
+        vencimiento = crm_parse_fecha_hora_tarea(tarea)
+
+        if not vencimiento:
+            continue
+
+        if vencimiento <= ahora and vencimiento >= ahora - timedelta(minutes=15):
+            grupos['vence_ahora'].append(tarea)
+        elif vencimiento > ahora and vencimiento <= en_una_hora:
+            grupos['proxima_hora'].append(tarea)
+        elif vencimiento.date() == hoy and vencimiento > ahora:
+            grupos['hoy'].append(tarea)
+        elif vencimiento < ahora:
+            grupos['vencidas'].append(tarea)
+
+    return grupos
+
 def crm_obtener_leads():
 
     headers, rows = obtener_interesados_datos()
@@ -2336,15 +2508,15 @@ def crm_leads_sin_contactar(leads):
 
 def crm_seguimientos_atrasados(tareas):
 
-    hoy = datetime.now().date()
+    ahora = datetime.now()
     atrasadas = []
 
     for tarea in tareas:
-        fecha = crm_parse_fecha(tarea.get('fecha_limite'))
+        fecha = crm_parse_fecha_hora_tarea(tarea)
 
         if (
             fecha
-            and fecha.date() < hoy
+            and fecha < ahora
             and tarea.get('estado') != 'Completada'
         ):
             atrasadas.append(tarea)
@@ -2358,8 +2530,8 @@ def crm_tareas_hoy(tareas):
         tarea
         for tarea in tareas
         if (
-            crm_parse_fecha(tarea.get('fecha_limite'))
-            and crm_parse_fecha(tarea.get('fecha_limite')).date() == hoy
+            crm_parse_fecha_hora_tarea(tarea)
+            and crm_parse_fecha_hora_tarea(tarea).date() == hoy
             and tarea.get('estado') != 'Completada'
         )
     ]
@@ -2489,10 +2661,12 @@ def crm_tareas_segmentadas(tareas):
 
     for tarea in tareas:
         estado = tarea.get('estado') or 'Pendiente'
-        fecha = crm_parse_fecha(tarea.get('fecha_limite'))
+        fecha = crm_parse_fecha_hora_tarea(tarea)
 
         if estado == 'Completada':
             grupos['completadas'].append(tarea)
+        elif estado == 'Vencida':
+            grupos['vencidas'].append(tarea)
         elif fecha and fecha.date() < hoy:
             grupos['vencidas'].append(tarea)
         elif fecha and fecha.date() == hoy:
@@ -2516,6 +2690,120 @@ def crm_agenda_por_fecha(agenda):
 
     return grupos
 
+def crm_tareas_proximas(tareas, limite=5):
+
+    ahora = datetime.now()
+    pendientes = []
+
+    for tarea in tareas:
+        if tarea.get('estado') == 'Completada':
+            continue
+
+        fecha = crm_parse_fecha_hora_tarea(tarea)
+
+        if fecha and fecha >= ahora:
+            pendientes.append((fecha, tarea))
+
+    pendientes.sort(key=lambda item: item[0])
+    return [tarea for _, tarea in pendientes[:limite]]
+
+
+def crm_cliente_ultimo_contacto(cliente, tareas):
+
+    fechas = []
+    creado = crm_parse_fecha(cliente.get('fecha_creacion'))
+
+    if creado:
+        fechas.append(creado)
+
+    nombre = (cliente.get('nombre') or '').lower()
+    propiedad = (cliente.get('propiedad') or '').lower()
+
+    for tarea in tareas:
+        coincide = (
+            nombre and nombre in (tarea.get('cliente') or '').lower()
+        ) or (
+            propiedad and propiedad in (tarea.get('propiedad') or '').lower()
+        )
+
+        if coincide:
+            fecha = crm_parse_fecha(tarea.get('fecha_creacion')) or crm_parse_fecha_hora_tarea(tarea)
+            if fecha:
+                fechas.append(fecha)
+
+    return max(fechas) if fechas else None
+
+
+def crm_clientes_sin_contacto(clientes, tareas, dias=7):
+
+    limite = datetime.now() - timedelta(days=dias)
+    sin_contacto = []
+
+    for cliente in clientes:
+        ultimo = crm_cliente_ultimo_contacto(cliente, tareas)
+
+        if ultimo and ultimo < limite:
+            sin_contacto.append(cliente)
+
+    return sin_contacto
+
+
+def crm_leads_sin_seguimiento(leads, tareas):
+
+    sin_seguimiento = []
+
+    for lead in leads:
+        nombre = (lead.get('nombre') or '').lower()
+        propiedad = (lead.get('propiedad') or '').lower()
+        tiene_tarea = any(
+            (nombre and nombre in (tarea.get('cliente') or '').lower())
+            or (propiedad and propiedad in (tarea.get('propiedad') or '').lower())
+            for tarea in tareas
+        )
+
+        if (lead.get('estado') or 'Nuevo') != 'Cerrado' and not tiene_tarea:
+            sin_seguimiento.append(lead)
+
+    return sin_seguimiento
+
+
+def crm_visitas_pendientes(agenda):
+
+    hoy = datetime.now().date()
+    pendientes = []
+
+    for visita in agenda:
+        fecha = crm_parse_fecha(visita.get('fecha'))
+        estado = visita.get('estado') or 'Agendada'
+
+        if fecha and fecha.date() >= hoy and estado in ['', 'Agendada', 'Confirmada']:
+            pendientes.append(visita)
+
+    return pendientes
+
+
+def crm_tareas_por_prioridad_notificacion(tareas):
+
+    grupos = {'Alta': [], 'Media': [], 'Baja': []}
+
+    for tarea in tareas:
+        if tarea.get('estado') == 'Completada':
+            continue
+
+        prioridad = tarea.get('prioridad') or 'Media'
+        if prioridad not in grupos:
+            prioridad = 'Media'
+
+        grupos[prioridad].append(tarea)
+
+    for prioridad in grupos:
+        grupos[prioridad] = sorted(
+            grupos[prioridad],
+            key=lambda tarea: crm_parse_fecha_hora_tarea(tarea) or datetime.max
+        )
+
+    return grupos
+
 def crm_dashboard_context():
 
     leads = crm_obtener_leads()
@@ -2530,12 +2818,21 @@ def crm_dashboard_context():
         if (lead.get('estado') or 'Nuevo') == 'Nuevo'
     ]
     visitas_proximas = crm_visitas_proximas(agenda)
+    if crm_actualizar_recordatorios_tareas(tareas):
+        crm_escribir_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tareas)
+
     tareas_atrasadas = crm_seguimientos_atrasados(tareas)
+    recordatorios_tareas = crm_tareas_por_vencimiento(tareas)
     oportunidades_activas = [
         oportunidad
         for oportunidad in oportunidades
         if oportunidad.get('etapa') != 'Cerrado'
     ]
+    proximas_tareas = crm_tareas_proximas(tareas)
+    clientes_sin_contacto = crm_clientes_sin_contacto(clientes, tareas)
+    leads_sin_seguimiento = crm_leads_sin_seguimiento(leads, tareas)
+    visitas_pendientes = crm_visitas_pendientes(agenda)
+    tareas_por_prioridad = crm_tareas_por_prioridad_notificacion(tareas)
 
     fuentes = {}
     for lead in leads:
@@ -2557,6 +2854,14 @@ def crm_dashboard_context():
         'visitas_proximas': visitas_proximas,
         'visitas_hoy': crm_visitas_hoy(agenda),
         'tareas_hoy': crm_tareas_hoy(tareas),
+        'recordatorios_tareas': recordatorios_tareas,
+        'tareas_vence_ahora': recordatorios_tareas['vence_ahora'],
+        'tareas_proxima_hora': recordatorios_tareas['proxima_hora'],
+        'proximas_tareas': proximas_tareas,
+        'clientes_sin_contacto': clientes_sin_contacto,
+        'leads_sin_seguimiento': leads_sin_seguimiento,
+        'visitas_pendientes': visitas_pendientes,
+        'tareas_por_prioridad': tareas_por_prioridad,
         'seguimientos_atrasados': tareas_atrasadas,
         'oportunidades': oportunidades,
         'oportunidades_activas': oportunidades_activas,
@@ -2718,11 +3023,13 @@ def crm_lead_perfil(row_number):
                 'cliente': lead.get('nombre', ''),
                 'propiedad': lead.get('propiedad', ''),
                 'fecha_limite': request.form.get('fecha_limite', '').strip(),
+                'hora_limite': request.form.get('hora_limite', '').strip(),
                 'prioridad': request.form.get('prioridad', '').strip() or 'Media',
                 'estado': 'Pendiente',
                 'recordatorio': request.form.get('recordatorio', '').strip(),
                 'notas': request.form.get('notas', '').strip(),
-                'fecha_creacion': crm_now()
+                'fecha_creacion': crm_now(),
+                'recordatorio_enviado': ''
             }
             crm_agregar_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tarea)
             crm_agregar_csv(CRM_LEAD_NOTAS_CSV, CRM_LEAD_NOTA_HEADERS, {
@@ -2909,6 +3216,7 @@ def crm_tareas():
                         tarea['cliente'] = request.form.get('cliente', '').strip()
                         tarea['propiedad'] = request.form.get('propiedad', '').strip()
                         tarea['fecha_limite'] = request.form.get('fecha_limite', '').strip()
+                        tarea['hora_limite'] = request.form.get('hora_limite', '').strip()
                         tarea['prioridad'] = request.form.get('prioridad', '').strip() or 'Media'
                         tarea['estado'] = request.form.get('estado', '').strip() or 'Pendiente'
                         tarea['recordatorio'] = request.form.get('recordatorio', '').strip()
@@ -2923,16 +3231,20 @@ def crm_tareas():
             'cliente': request.form.get('cliente', '').strip(),
             'propiedad': request.form.get('propiedad', '').strip(),
             'fecha_limite': request.form.get('fecha_limite', '').strip(),
+            'hora_limite': request.form.get('hora_limite', '').strip(),
             'prioridad': request.form.get('prioridad', '').strip() or 'Media',
             'estado': request.form.get('estado', '').strip() or 'Pendiente',
             'recordatorio': request.form.get('recordatorio', '').strip(),
             'notas': request.form.get('notas', '').strip(),
-            'fecha_creacion': crm_now()
+            'fecha_creacion': crm_now(),
+            'recordatorio_enviado': ''
         }
         crm_agregar_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tarea)
         return redirect(url_for('crm_tareas'))
 
     tareas = crm_leer_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS)
+    if crm_actualizar_recordatorios_tareas(tareas):
+        crm_escribir_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tareas)
     atrasadas = {
         tarea.get('id')
         for tarea in crm_seguimientos_atrasados(tareas)
@@ -2948,6 +3260,203 @@ def crm_tareas():
         atrasadas=atrasadas,
         prioridades=CRM_PRIORIDADES,
         estados=CRM_ESTADOS_TAREA
+    )
+
+def crm_normalizar_contacto_valor(valor):
+
+    return ''.join(ch for ch in (valor or '') if ch.isdigit() or ch == '+').strip()
+
+def crm_contacto_duplicado(contacto, clientes):
+
+    telefono = crm_normalizar_contacto_valor(contacto.get('telefono'))
+    email = (contacto.get('email') or '').strip().lower()
+
+    for cliente in clientes:
+        cliente_telefono = crm_normalizar_contacto_valor(cliente.get('telefono'))
+        cliente_email = (cliente.get('email') or '').strip().lower()
+
+        if telefono and cliente_telefono and telefono == cliente_telefono:
+            return True
+
+        if email and cliente_email and email == cliente_email:
+            return True
+
+    return False
+
+def crm_extraer_contactos_csv(contenido):
+
+    contactos = []
+    reader = csv.DictReader(io.StringIO(contenido))
+
+    for row in reader:
+        normal = {str(k or '').strip().lower(): (v or '').strip() for k, v in row.items()}
+        nombre = (
+            normal.get('nombre')
+            or normal.get('name')
+            or normal.get('full name')
+            or normal.get('full_name')
+            or ' '.join(filter(None, [normal.get('first name'), normal.get('last name')]))
+            or ' '.join(filter(None, [normal.get('nombre de pila'), normal.get('apellidos')]))
+        ).strip()
+        telefono = (
+            normal.get('telefono')
+            or normal.get('teléfono')
+            or normal.get('phone')
+            or normal.get('mobile')
+            or normal.get('celular')
+            or normal.get('phone 1 - value')
+            or normal.get('phone value')
+        ).strip()
+        email = (
+            normal.get('email')
+            or normal.get('e-mail')
+            or normal.get('correo')
+            or normal.get('email 1 - value')
+            or normal.get('e-mail 1 - value')
+        ).strip()
+
+        if nombre or telefono or email:
+            contactos.append({
+                'nombre': nombre or telefono or email,
+                'telefono': telefono,
+                'email': email
+            })
+
+    return contactos
+
+def crm_vcf_unescape(valor):
+
+    return (
+        (valor or '')
+        .replace('\\n', ' ')
+        .replace('\\,', ',')
+        .replace('\\;', ';')
+        .strip()
+    )
+
+def crm_extraer_contactos_vcf(contenido):
+
+    contactos = []
+    actual = {}
+    lineas = []
+
+    for linea in contenido.splitlines():
+        if linea.startswith((' ', '\t')) and lineas:
+            lineas[-1] += linea[1:]
+        else:
+            lineas.append(linea)
+
+    for linea in lineas:
+        limpia = linea.strip()
+        upper = limpia.upper()
+
+        if upper == 'BEGIN:VCARD':
+            actual = {}
+        elif upper == 'END:VCARD':
+            if actual.get('nombre') or actual.get('telefono') or actual.get('email'):
+                contactos.append({
+                    'nombre': actual.get('nombre') or actual.get('telefono') or actual.get('email'),
+                    'telefono': actual.get('telefono', ''),
+                    'email': actual.get('email', '')
+                })
+            actual = {}
+        elif ':' in limpia:
+            key, value = limpia.split(':', 1)
+            key_upper = key.upper()
+            value = crm_vcf_unescape(value)
+
+            if key_upper.startswith('FN') and not actual.get('nombre'):
+                actual['nombre'] = value
+            elif key_upper.startswith('N') and not actual.get('nombre'):
+                partes = [parte for parte in value.split(';') if parte]
+                actual['nombre'] = ' '.join(reversed(partes[:2])).strip() or value
+            elif key_upper.startswith('TEL') and not actual.get('telefono'):
+                actual['telefono'] = value
+            elif key_upper.startswith('EMAIL') and not actual.get('email'):
+                actual['email'] = value
+
+    return contactos
+
+def crm_extraer_contactos_archivo(archivo):
+
+    nombre_archivo = (archivo.filename or '').lower()
+    contenido = archivo.read().decode('utf-8-sig', errors='ignore')
+
+    if nombre_archivo.endswith('.vcf'):
+        return crm_extraer_contactos_vcf(contenido)
+
+    return crm_extraer_contactos_csv(contenido)
+
+@app.route('/crm/clientes/importar', methods=['GET', 'POST'])
+def crm_clientes_importar():
+
+    preview = []
+    resultado = None
+    error = ''
+
+    if request.method == 'POST':
+        action = request.form.get('action', '').strip()
+
+        if action == 'confirmar':
+            preview = session.get('crm_contactos_preview', [])
+            clientes = crm_leer_csv(CRM_CLIENTES_CSV, CRM_CLIENTE_HEADERS)
+            importados = 0
+            duplicados = 0
+            errores = 0
+
+            for contacto in preview:
+                try:
+                    if crm_contacto_duplicado(contacto, clientes):
+                        duplicados += 1
+                        continue
+
+                    cliente = {
+                        'id': crm_generar_id('client'),
+                        'nombre': contacto.get('nombre', '').strip(),
+                        'telefono': contacto.get('telefono', '').strip(),
+                        'email': contacto.get('email', '').strip(),
+                        'tipo': 'Comprador',
+                        'propiedad': '',
+                        'fuente': 'Teléfono',
+                        'historial': 'Importado desde contactos del teléfono',
+                        'notas': '',
+                        'fecha_creacion': crm_now()
+                    }
+
+                    clientes.append(cliente)
+                    importados += 1
+                except Exception:
+                    errores += 1
+
+            crm_escribir_csv(CRM_CLIENTES_CSV, CRM_CLIENTE_HEADERS, clientes)
+            session.pop('crm_contactos_preview', None)
+            resultado = {
+                'importados': importados,
+                'duplicados': duplicados,
+                'errores': errores
+            }
+            preview = []
+        else:
+            archivo = request.files.get('archivo')
+
+            if not archivo or not archivo.filename:
+                error = 'Seleccioná un archivo CSV o VCF.'
+            elif not archivo.filename.lower().endswith(('.csv', '.vcf')):
+                error = 'Formato no permitido. Subí un archivo .csv o .vcf.'
+            else:
+                try:
+                    preview = crm_extraer_contactos_archivo(archivo)
+                    session['crm_contactos_preview'] = preview
+                except Exception as e:
+                    error = f'No se pudo leer el archivo: {e}'
+
+    return render_template(
+        'crm/importar_contactos.html',
+        active='clientes',
+        title='Importar contactos',
+        preview=preview,
+        resultado=resultado,
+        error=error
     )
 
 @app.route('/crm/clientes', methods=['GET', 'POST'])
@@ -3090,11 +3599,18 @@ def crm_agenda():
 @app.route('/crm/notificaciones')
 def crm_notificaciones():
 
+    context = crm_dashboard_context()
     return render_template(
         'crm/notificaciones.html',
         active='notificaciones',
         title='Notificaciones',
-        notificaciones=crm_notificaciones_context()
+        notificaciones=crm_notificaciones_context(),
+        recordatorios_tareas=context['recordatorios_tareas'],
+        tareas_vence_ahora=context['tareas_vence_ahora'],
+        tareas_proxima_hora=context['tareas_proxima_hora'],
+        tareas_por_prioridad=context['tareas_por_prioridad'],
+        tareas_hoy=context['tareas_hoy'],
+        seguimientos_atrasados=context['seguimientos_atrasados']
     )
 
 # =========================
@@ -3304,3 +3820,8 @@ if __name__ == '__main__':
         port=int(os.getenv("PORT", 5000)),
         debug=True
     )
+
+
+
+
+

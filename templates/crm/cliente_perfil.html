@@ -6,7 +6,7 @@
         <h1>{{ cliente.nombre }}</h1>
         <p>{{ cliente.tipo }} · {{ cliente.propiedad or "Sin propiedad asociada" }}</p>
     </div>
-    <a class="btn secondary" href="/crm/clientes">Volver</a>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">{% if cliente.telefono %}<a class="btn" href="https://wa.me/{{ cliente.telefono|replace(' ', '')|replace('+', '') }}" target="_blank">WhatsApp</a>{% endif %}{% if cliente.telefono %}<a class="btn secondary" href="tel:{{ cliente.telefono }}">Llamar</a>{% endif %}{% if cliente.email %}<a class="btn secondary" href="mailto:{{ cliente.email }}">Email</a>{% endif %}<a class="btn secondary" href="/crm/clientes">Volver</a></div>
 </div>
 
 <section class="profile-grid">
@@ -56,3 +56,4 @@
     </aside>
 </section>
 {% endblock %}
+

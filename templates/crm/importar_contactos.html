@@ -1,0 +1,23 @@
+{% extends "crm/base.html" %}
+
+{% block content %}
+<div class="page-head"><div class="page-title"><h1>Importar contactos</h1><p>Subí contactos exportados del teléfono en formato CSV o VCF.</p></div><a class="btn secondary" href="/crm/clientes">Volver</a></div>
+
+{% if error %}<div class="panel" style="border-color:#f0b8bd;background:#fff7f8"><p class="muted" style="margin:0">{{ error }}</p></div>{% endif %}
+{% if resultado %}<div class="hero-panel"><div class="hero-row" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="ops-card"><div class="ops-top"><div><span>Importados</span><small>Clientes nuevos</small></div><div class="ops-icon">OK</div></div><strong>{{ resultado.importados }}</strong></div><div class="ops-card soft"><div class="ops-top"><div><span>Duplicados</span><small>Omitidos</small></div><div class="ops-icon">DU</div></div><strong>{{ resultado.duplicados }}</strong></div><div class="ops-card warning"><div class="ops-top"><div><span>Con error</span><small>No procesados</small></div><div class="ops-icon">ER</div></div><strong>{{ resultado.errores }}</strong></div></div></div>{% endif %}
+
+<section class="panel soft-form">
+    <form method="POST" action="/crm/clientes/importar" enctype="multipart/form-data" class="grid cols-2">
+        <div><label>Archivo de contactos</label><input name="archivo" type="file" accept=".csv,.vcf,text/csv,text/vcard" required></div>
+        <div style="align-self:end"><button class="btn" type="submit">Ver vista previa</button></div>
+    </form>
+</section>
+
+{% if preview %}
+<section class="panel">
+    <div class="section-head"><div><h2>Vista previa</h2><p>Primeros contactos detectados. Se importan como Comprador con fuente Teléfono.</p></div></div>
+    <div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Teléfono</th><th>Email</th></tr></thead><tbody>{% for contacto in preview[:20] %}<tr><td>{{ contacto.nombre }}</td><td>{{ contacto.telefono or "-" }}</td><td>{{ contacto.email or "-" }}</td></tr>{% endfor %}</tbody></table></div>
+    <form method="POST" action="/crm/clientes/importar" style="margin-top:12px"><input type="hidden" name="action" value="confirmar"><button class="btn" type="submit">Confirmar importación</button></form>
+</section>
+{% endif %}
+{% endblock %}
