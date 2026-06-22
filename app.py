@@ -1,5 +1,5 @@
 
-from flask import Flask, request, jsonify, send_from_directory, send_file, render_template, session, redirect, url_for
+from flask import Flask, request, jsonify, send_from_directory, send_file, render_template, render_template_string, session, redirect, url_for
 from flask_cors import CORS
 from openai import OpenAI
 from twilio.twiml.messaging_response import MessagingResponse
@@ -3208,6 +3208,128 @@ def crm_oportunidades():
         fuentes=FUENTES_LEAD
     )
 
+
+def crm_mask_secret(valor):
+
+    valor = (valor or '').strip()
+
+    if not valor:
+        return 'NO_CONFIGURADO'
+
+    if '@' in valor:
+        usuario, dominio = valor.split('@', 1)
+        usuario_mask = usuario[:2] + '***' if len(usuario) > 2 else '***'
+        return f'{usuario_mask}@{dominio}'
+
+    if len(valor) <= 4:
+        return '***'
+
+    return f'{valor[:2]}***{valor[-2:]}'
+
+
+def crm_smtp_config_actual():
+
+    return {
+        'SMTP_HOST': os.getenv('SMTP_HOST', '').strip(),
+        'SMTP_PORT': os.getenv('SMTP_PORT', '587').strip() or '587',
+        'SMTP_USER': os.getenv('SMTP_USER', '').strip(),
+        'EMAIL_FROM': (os.getenv('EMAIL_FROM') or os.getenv('SMTP_USER', '')).strip(),
+        'SMTP_PASSWORD_CONFIGURADO': 'Si' if os.getenv('SMTP_PASSWORD', '').strip() else 'No'
+    }
+
+
+def crm_enviar_email_prueba():
+
+    auth = crm_auth_leer()
+    email_to = (auth.get('email_recordatorios') or os.getenv('EMAIL_RECORDATORIOS') or '').strip()
+    config = crm_smtp_config_actual()
+    smtp_password = os.getenv('SMTP_PASSWORD', '').strip()
+
+    if not email_to:
+        return False, 'Error SMTP: no hay email de recordatorios configurado en Mi Cuenta.'
+
+    if not config['SMTP_HOST'] or not config['SMTP_USER'] or not smtp_password:
+        return False, 'Error SMTP: faltan SMTP_HOST, SMTP_USER o SMTP_PASSWORD.'
+
+    try:
+        smtp_port = int(config['SMTP_PORT'])
+    except (TypeError, ValueError):
+        return False, f"Error SMTP: SMTP_PORT inválido ({config['SMTP_PORT']})."
+
+    import smtplib
+    from email.message import EmailMessage
+
+    msg = EmailMessage()
+    msg['Subject'] = 'Prueba CRM - Configuración SMTP'
+    msg['From'] = config['EMAIL_FROM']
+    msg['To'] = email_to
+    msg.set_content('Este es un correo de prueba del CRM para verificar la configuración SMTP.')
+
+    try:
+        print('Test SMTP: conectando')
+        with smtplib.SMTP(config['SMTP_HOST'], smtp_port, timeout=20) as server:
+            print('Test SMTP: conexión OK')
+            server.starttls()
+            print('Test SMTP: STARTTLS OK')
+            server.login(config['SMTP_USER'], smtp_password)
+            print('Test SMTP: autenticación OK')
+            server.send_message(msg)
+            print('Test SMTP: email enviado correctamente')
+        return True, 'Email enviado correctamente'
+    except Exception as e:
+        print(f'Error SMTP test-email: {e}')
+        return False, f'Error SMTP: {e}'
+
+
+@app.route('/crm/test-email', methods=['GET', 'POST'])
+def crm_test_email():
+
+    config = crm_smtp_config_actual()
+    auth = crm_auth_leer()
+    resultado = ''
+    ok = False
+
+    if request.method == 'POST':
+        ok, resultado = crm_enviar_email_prueba()
+
+    destino = auth.get('email_recordatorios') or os.getenv('EMAIL_RECORDATORIOS', '')
+    html = '''
+    <!doctype html>
+    <html lang="es">
+    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test email CRM</title></head>
+    <body style="font-family:Arial,sans-serif;background:#f6f7f7;color:#222;padding:24px">
+        <main style="max-width:760px;margin:auto;background:white;border:1px solid #e1e5e7;border-radius:8px;padding:20px">
+            <h1>Test email CRM</h1>
+            <p>Ruta temporal protegida por login CRM.</p>
+            <ul>
+                <li><strong>SMTP_HOST:</strong> {{ smtp_host }}</li>
+                <li><strong>SMTP_PORT:</strong> {{ smtp_port }}</li>
+                <li><strong>SMTP_USER:</strong> {{ smtp_user }}</li>
+                <li><strong>EMAIL_FROM:</strong> {{ email_from }}</li>
+                <li><strong>SMTP_PASSWORD configurado:</strong> {{ smtp_password_configurado }}</li>
+                <li><strong>Email destino:</strong> {{ destino }}</li>
+            </ul>
+            {% if resultado %}
+                <p style="padding:12px;border-radius:6px;background:{{ '#e7f5ec' if ok else '#fde7e9' }}"><strong>{{ resultado }}</strong></p>
+            {% endif %}
+            <form method="post"><button type="submit" style="background:#08747f;color:white;border:0;border-radius:6px;padding:10px 14px;cursor:pointer">Enviar correo de prueba</button></form>
+            <p><a href="/crm/cuenta">Volver a Mi Cuenta</a></p>
+        </main>
+    </body>
+    </html>
+    '''
+    return render_template_string(
+        html,
+        smtp_host=crm_mask_secret(config['SMTP_HOST']),
+        smtp_port=config['SMTP_PORT'] or 'NO_CONFIGURADO',
+        smtp_user=crm_mask_secret(config['SMTP_USER']),
+        email_from=crm_mask_secret(config['EMAIL_FROM']),
+        smtp_password_configurado=config['SMTP_PASSWORD_CONFIGURADO'],
+        destino=crm_mask_secret(destino),
+        resultado=resultado,
+        ok=ok
+    )
+
 @app.route('/crm/tareas', methods=['GET', 'POST'])
 def crm_tareas():
 
@@ -3835,6 +3957,7 @@ if __name__ == '__main__':
         port=int(os.getenv("PORT", 5000)),
         debug=True
     )
+
 
 
 
