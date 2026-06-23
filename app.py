@@ -3731,6 +3731,31 @@ def crm_extraer_contactos_archivo(archivo):
 
     return crm_extraer_contactos_csv(contenido)
 
+def crm_contactos_desde_json(contenido):
+
+    datos = json.loads(contenido or '[]')
+    contactos = []
+
+    if not isinstance(datos, list):
+        return contactos
+
+    for item in datos:
+        if not isinstance(item, dict):
+            continue
+
+        nombre = str(item.get('nombre') or item.get('name') or '').strip()
+        telefono = str(item.get('telefono') or item.get('tel') or '').strip()
+        email = str(item.get('email') or '').strip()
+
+        if nombre or telefono or email:
+            contactos.append({
+                'nombre': nombre or telefono or email,
+                'telefono': telefono,
+                'email': email,
+                'fuente': 'Contactos del teléfono'
+            })
+
+    return contactos
 @app.route('/crm/clientes/importar', methods=['GET', 'POST'])
 def crm_clientes_importar():
 
@@ -3754,6 +3779,7 @@ def crm_clientes_importar():
                         duplicados += 1
                         continue
 
+                    fuente = contacto.get('fuente', '').strip() or 'Teléfono'
                     cliente = {
                         'id': crm_generar_id('client'),
                         'nombre': contacto.get('nombre', '').strip(),
@@ -3761,8 +3787,8 @@ def crm_clientes_importar():
                         'email': contacto.get('email', '').strip(),
                         'tipo': 'Comprador',
                         'propiedad': '',
-                        'fuente': 'Teléfono',
-                        'historial': 'Importado desde contactos del teléfono',
+                        'fuente': fuente,
+                        'historial': f'Importado desde {fuente.lower()}',
                         'notas': '',
                         'fecha_creacion': crm_now()
                     }
@@ -3780,6 +3806,15 @@ def crm_clientes_importar():
                 'errores': errores
             }
             preview = []
+        elif action == 'contact_picker':
+            try:
+                preview = crm_contactos_desde_json(request.form.get('contactos_json', ''))
+                if preview:
+                    session['crm_contactos_preview'] = preview
+                else:
+                    error = 'No se detectaron contactos para importar.'
+            except Exception as e:
+                error = f'No se pudieron leer los contactos del teléfono: {e}'
         else:
             archivo = request.files.get('archivo')
 
@@ -3790,6 +3825,8 @@ def crm_clientes_importar():
             else:
                 try:
                     preview = crm_extraer_contactos_archivo(archivo)
+                    for contacto in preview:
+                        contacto['fuente'] = 'Contactos del teléfono'
                     session['crm_contactos_preview'] = preview
                 except Exception as e:
                     error = f'No se pudo leer el archivo: {e}'
