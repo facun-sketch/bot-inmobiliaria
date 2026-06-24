@@ -6,7 +6,7 @@
         <h1>{{ cliente.nombre }}</h1>
         <p>{{ cliente.tipo }} · {{ cliente.propiedad or "Sin propiedad asociada" }}</p>
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">{% if cliente.telefono %}<a class="btn" href="https://wa.me/{{ cliente.telefono|replace(' ', '')|replace('+', '') }}" target="_blank">WhatsApp</a>{% endif %}{% if cliente.telefono %}<a class="btn secondary" href="tel:{{ cliente.telefono }}">Llamar</a>{% endif %}{% if cliente.email %}<a class="btn secondary" href="mailto:{{ cliente.email }}">Email</a>{% endif %}<a class="btn secondary" href="/crm/clientes">Volver</a></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">{% if cliente.telefono %}<a class="btn" href="/crm/cliente/{{ cliente.id }}/whatsapp" target="_blank">WhatsApp</a>{% endif %}{% if cliente.telefono %}<a class="btn secondary" href="tel:{{ cliente.telefono }}">Llamar</a>{% endif %}{% if cliente.email %}<a class="btn secondary" href="/crm/cliente/{{ cliente.id }}/email">Email</a>{% endif %}<a class="btn secondary" href="/crm/clientes">Volver</a></div>
 </div>
 
 <section class="profile-grid">
@@ -29,6 +29,17 @@
         <div class="panel">
             <div class="section-label" style="margin-top:0">Notas internas</div>
             <p>{{ cliente.notas or "Sin notas internas." }}</p>
+        </div>
+        <div class="panel">
+            <div class="section-head"><div><h2>Actividad</h2><p>Historial cronológico del cliente.</p></div></div>
+            <div class="activity-tabs">{% for filtro in filtros_actividad %}<a class="{{ 'active' if filtro_actividad == filtro else '' }}" href="/crm/cliente/{{ cliente.id }}?actividad={{ filtro }}">{{ filtro }}</a>{% endfor %}</div>
+            <div class="activity-timeline">
+                {% for actividad in actividades %}
+                <div class="activity-item"><div class="activity-icon">{{ actividad.icono }}</div><div class="activity-card"><div class="activity-card-head"><h3>{{ actividad.tipo }}</h3><small class="muted">{{ actividad.fecha }}</small></div><p>{{ actividad.descripcion }}</p><div class="activity-meta"><span class="pill teal">{{ actividad.usuario or "Sistema" }}</span>{% if actividad.entidad_propiedad %}<span class="pill">{{ actividad.entidad_propiedad }}</span>{% endif %}</div></div></div>
+                {% else %}
+                <div class="activity-item"><div class="activity-icon">CL</div><div class="activity-card"><h3>Sin actividad registrada</h3><p>Las acciones del cliente aparecerán acá.</p></div></div>
+                {% endfor %}
+            </div>
         </div>
     </div>
     <aside class="profile-side">

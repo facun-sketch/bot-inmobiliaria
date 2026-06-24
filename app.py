@@ -747,6 +747,15 @@ def importar_leads_infocasas(limit=20):
 
         guardar_interesado_google_sheets(row)
         guardar_infocasas_importado(lead.get('message_id', ''))
+        crm_registrar_actividad(
+            'Lead creado',
+            f"Lead importado desde InfoCasas: {lead.get('nombre', '') or 'Contacto InfoCasas'}",
+            'lead',
+            '',
+            lead.get('nombre', ''),
+            lead.get('propiedad', ''),
+            'Sistema'
+        )
         importados += 1
 
     print(f"Leads importados: {importados}")
@@ -830,6 +839,15 @@ def guardar_interesado():
 
     try:
         guardar_interesado_google_sheets(row)
+        crm_registrar_actividad(
+            'Lead creado',
+            f'Lead creado desde Web: {nombre or telefono or email}',
+            'lead',
+            '',
+            nombre,
+            propiedad,
+            'Sistema'
+        )
 
         try:
             enviar_email_interesado(
@@ -1051,7 +1069,16 @@ def actualizar_estado_interesado():
         if nuevo_estado not in ESTADOS_INTERESADO:
             raise RuntimeError("Estado inválido")
 
+        lead_actualizado = crm_lead_por_row(row_number)
         actualizar_estado_interesado_storage(row_number, nuevo_estado)
+        crm_registrar_actividad(
+            'Cambio de estado',
+            f'Estado actualizado a {nuevo_estado}',
+            'lead',
+            row_number,
+            (lead_actualizado or {}).get('nombre', ''),
+            (lead_actualizado or {}).get('propiedad', '')
+        )
 
         return '''
         <!DOCTYPE html>
@@ -1367,6 +1394,14 @@ def admin_leads_nuevo():
             ]
 
             guardar_interesado_google_sheets(row)
+            crm_registrar_actividad(
+                'Lead creado',
+                f'Lead manual creado desde {fuente}: {nombre}',
+                'lead',
+                '',
+                nombre,
+                propiedad
+            )
 
             return '''
             <!DOCTYPE html>
@@ -2197,6 +2232,7 @@ CRM_TAREAS_CSV = 'crm_tareas.csv'
 CRM_CLIENTES_CSV = 'crm_clientes.csv'
 CRM_AGENDA_CSV = 'crm_agenda.csv'
 CRM_LEAD_NOTAS_CSV = 'crm_lead_notas.csv'
+CRM_ACTIVIDADES_CSV = 'crm_actividades.csv'
 
 CRM_STORAGE_COLLECTIONS = {
     CRM_OPORTUNIDADES_CSV: 'crm_oportunidades',
@@ -2204,6 +2240,7 @@ CRM_STORAGE_COLLECTIONS = {
     CRM_CLIENTES_CSV: 'crm_clientes',
     CRM_AGENDA_CSV: 'crm_agenda',
     CRM_LEAD_NOTAS_CSV: 'crm_lead_notas',
+    CRM_ACTIVIDADES_CSV: 'crm_actividades',
 }
 
 CRM_OPORTUNIDAD_HEADERS = [
@@ -2268,6 +2305,18 @@ CRM_LEAD_NOTA_HEADERS = [
     'fecha'
 ]
 
+CRM_ACTIVIDAD_HEADERS = [
+    'id',
+    'fecha',
+    'tipo',
+    'usuario',
+    'descripcion',
+    'entidad_tipo',
+    'entidad_id',
+    'entidad_nombre',
+    'entidad_propiedad'
+]
+
 CRM_ETAPAS_OPORTUNIDAD = [
     'Cultivar',
     'Cita',
@@ -2304,6 +2353,139 @@ def crm_now():
 def crm_generar_id(prefix):
 
     return f"{prefix}-{datetime.now().strftime('%Y%m%d%H%M%S%f')}"
+
+def crm_usuario_actual():
+
+    return session.get('crm_user') or 'Sistema'
+
+def crm_registrar_actividad(tipo, descripcion, entidad_tipo='', entidad_id='', entidad_nombre='', entidad_propiedad='', usuario=None):
+
+    try:
+        actividad = {
+            'id': crm_generar_id('act'),
+            'fecha': crm_now(),
+            'tipo': tipo,
+            'usuario': usuario or crm_usuario_actual(),
+            'descripcion': descripcion,
+            'entidad_tipo': entidad_tipo,
+            'entidad_id': str(entidad_id or ''),
+            'entidad_nombre': entidad_nombre or '',
+            'entidad_propiedad': entidad_propiedad or ''
+        }
+        crm_agregar_csv(CRM_ACTIVIDADES_CSV, CRM_ACTIVIDAD_HEADERS, actividad)
+    except Exception as e:
+        print(f'Error registrando actividad CRM: {e}')
+
+def crm_actividad_fecha(actividad):
+
+    return crm_parse_fecha(actividad.get('fecha')) or datetime.min
+
+def crm_actividad_icono(tipo):
+
+    tipo = (tipo or '').lower()
+    if 'llamada' in tipo:
+        return 'LL'
+    if 'whatsapp' in tipo:
+        return 'WA'
+    if 'email' in tipo:
+        return 'EM'
+    if 'nota' in tipo:
+        return 'NO'
+    if 'tarea' in tipo:
+        return 'TA'
+    if 'visita' in tipo:
+        return 'VI'
+    if 'oportunidad' in tipo:
+        return 'OP'
+    if 'cliente' in tipo:
+        return 'CL'
+    if 'lead' in tipo:
+        return 'LD'
+    return 'AC'
+
+def crm_actividades_todas():
+
+    actividades = crm_leer_csv(CRM_ACTIVIDADES_CSV, CRM_ACTIVIDAD_HEADERS)
+    for actividad in actividades:
+        actividad['icono'] = crm_actividad_icono(actividad.get('tipo'))
+
+    actividades.sort(key=crm_actividad_fecha, reverse=True)
+    return actividades
+
+def crm_actividad_coincide_entidad(actividad, entidad_tipo='', entidad_id='', entidad_nombre='', entidad_propiedad=''):
+
+    actividad_tipo = (actividad.get('entidad_tipo') or '').lower()
+    actividad_id = str(actividad.get('entidad_id') or '')
+    actividad_nombre = (actividad.get('entidad_nombre') or '').strip().lower()
+    actividad_propiedad = (actividad.get('entidad_propiedad') or '').strip().lower()
+    entidad_tipo = (entidad_tipo or '').lower()
+    entidad_id = str(entidad_id or '')
+    entidad_nombre = (entidad_nombre or '').strip().lower()
+    entidad_propiedad = (entidad_propiedad or '').strip().lower()
+
+    if entidad_tipo and entidad_id and actividad_tipo == entidad_tipo and actividad_id == entidad_id:
+        return True
+
+    if entidad_nombre and actividad_nombre and entidad_nombre == actividad_nombre:
+        return True
+
+    if entidad_propiedad and actividad_propiedad and entidad_propiedad == actividad_propiedad:
+        return True
+
+    return False
+
+def crm_actividad_pasa_filtro(actividad, filtro='Todo'):
+
+    filtro = filtro or 'Todo'
+    fecha = crm_actividad_fecha(actividad)
+    ahora = datetime.now()
+    tipo = (actividad.get('tipo') or '').lower()
+
+    if filtro == 'Hoy':
+        return fecha.date() == ahora.date()
+    if filtro == 'Semana':
+        return fecha >= ahora - timedelta(days=7)
+    if filtro == 'Mes':
+        return fecha >= ahora - timedelta(days=30)
+    if filtro == 'Llamadas':
+        return 'llamada' in tipo
+    if filtro == 'WhatsApp':
+        return 'whatsapp' in tipo
+    if filtro == 'Emails':
+        return 'email' in tipo
+    if filtro == 'Notas':
+        return 'nota' in tipo
+    if filtro == 'Tareas':
+        return 'tarea' in tipo
+    if filtro == 'Visitas':
+        return 'visita' in tipo
+
+    return True
+
+def crm_actividades_filtradas(entidad_tipo='', entidad_id='', entidad_nombre='', entidad_propiedad='', filtro='Todo', limite=None):
+
+    actividades = [
+        actividad
+        for actividad in crm_actividades_todas()
+        if crm_actividad_pasa_filtro(actividad, filtro)
+        and (
+            not entidad_tipo
+            or crm_actividad_coincide_entidad(actividad, entidad_tipo, entidad_id, entidad_nombre, entidad_propiedad)
+        )
+    ]
+
+    if limite:
+        return actividades[:limite]
+
+    return actividades
+
+def crm_actividad_resumen():
+
+    actividades = crm_actividades_todas()
+    ahora = datetime.now()
+    hoy = [actividad for actividad in actividades if crm_actividad_fecha(actividad).date() == ahora.date()]
+    semana = [actividad for actividad in actividades if crm_actividad_fecha(actividad) >= ahora - timedelta(days=7)]
+    return actividades[:10], hoy, semana
 
 def crm_storage_collection(archivo):
 
@@ -2458,7 +2640,17 @@ def enviar_email_recordatorio_tarea(tarea):
         body
     )
 
-    if not ok:
+    if ok:
+        crm_registrar_actividad(
+            'Email enviado',
+            f"Recordatorio enviado por email: {tarea.get('titulo', '')}",
+            'contacto',
+            '',
+            tarea.get('cliente', ''),
+            tarea.get('propiedad', ''),
+            'Sistema'
+        )
+    else:
         print(f'Error Resend recordatorio: {respuesta}')
 
     return ok
@@ -2877,6 +3069,7 @@ def crm_dashboard_context():
     leads_sin_seguimiento = crm_leads_sin_seguimiento(leads, tareas)
     visitas_pendientes = crm_visitas_pendientes(agenda)
     tareas_por_prioridad = crm_tareas_por_prioridad_notificacion(tareas)
+    actividades_ultimas, actividades_hoy, actividades_semana = crm_actividad_resumen()
 
     fuentes = {}
     for lead in leads:
@@ -2912,6 +3105,9 @@ def crm_dashboard_context():
         'tareas': tareas,
         'clientes': clientes,
         'agenda': agenda,
+        'actividades_ultimas': actividades_ultimas,
+        'actividades_hoy': actividades_hoy,
+        'actividades_semana': actividades_semana,
         'fuentes': fuentes,
         'etapas': etapas
     }
@@ -3049,6 +3245,80 @@ def crm_leads():
         busqueda=busqueda
     )
 
+
+def crm_whatsapp_url(telefono):
+
+    numero = ''.join(ch for ch in (telefono or '') if ch.isdigit())
+    return f'https://wa.me/{numero}' if numero else '/crm/dashboard'
+
+@app.route('/crm/lead/<int:row_number>/whatsapp')
+def crm_lead_whatsapp(row_number):
+
+    lead = crm_lead_por_row(row_number)
+    if not lead:
+        return "Lead no encontrado.", 404
+
+    crm_registrar_actividad(
+        'WhatsApp iniciado',
+        'Mensaje de WhatsApp iniciado desde el CRM',
+        'lead',
+        row_number,
+        lead.get('nombre', ''),
+        lead.get('propiedad', '')
+    )
+    return redirect(crm_whatsapp_url(lead.get('telefono')))
+
+@app.route('/crm/lead/<int:row_number>/email')
+def crm_lead_email(row_number):
+
+    lead = crm_lead_por_row(row_number)
+    if not lead:
+        return "Lead no encontrado.", 404
+
+    crm_registrar_actividad(
+        'Email iniciado',
+        'Email iniciado desde el CRM',
+        'lead',
+        row_number,
+        lead.get('nombre', ''),
+        lead.get('propiedad', '')
+    )
+    return redirect(f"mailto:{lead.get('email', '')}")
+
+@app.route('/crm/cliente/<cliente_id>/whatsapp')
+def crm_cliente_whatsapp(cliente_id):
+
+    cliente = crm_cliente_por_id(cliente_id)
+    if not cliente:
+        return "Cliente no encontrado.", 404
+
+    crm_registrar_actividad(
+        'WhatsApp iniciado',
+        'Mensaje de WhatsApp iniciado desde el CRM',
+        'cliente',
+        cliente_id,
+        cliente.get('nombre', ''),
+        cliente.get('propiedad', '')
+    )
+    return redirect(crm_whatsapp_url(cliente.get('telefono')))
+
+@app.route('/crm/cliente/<cliente_id>/email')
+def crm_cliente_email(cliente_id):
+
+    cliente = crm_cliente_por_id(cliente_id)
+    if not cliente:
+        return "Cliente no encontrado.", 404
+
+    crm_registrar_actividad(
+        'Email iniciado',
+        'Email iniciado desde el CRM',
+        'cliente',
+        cliente_id,
+        cliente.get('nombre', ''),
+        cliente.get('propiedad', '')
+    )
+    return redirect(f"mailto:{cliente.get('email', '')}")
+
 @app.route('/crm/lead/<int:row_number>', methods=['GET', 'POST'])
 def crm_lead_perfil(row_number):
 
@@ -3083,6 +3353,14 @@ def crm_lead_perfil(row_number):
                 'contenido': f"Tarea creada: {tarea['titulo']} para {tarea['fecha_limite']}",
                 'fecha': crm_now()
             })
+            crm_registrar_actividad(
+                'Tarea creada',
+                f"Tarea creada: {tarea['titulo']}",
+                'lead',
+                row_number,
+                lead.get('nombre', ''),
+                lead.get('propiedad', '')
+            )
 
         elif action == 'agendar_visita':
             visita = {
@@ -3104,6 +3382,14 @@ def crm_lead_perfil(row_number):
                 'contenido': f"Visita agendada: {visita['fecha']} {visita['hora']}",
                 'fecha': crm_now()
             })
+            crm_registrar_actividad(
+                'Visita creada',
+                f"Visita agendada para {visita['fecha']} {visita['hora']}",
+                'lead',
+                row_number,
+                lead.get('nombre', ''),
+                lead.get('propiedad', '')
+            )
 
         elif action == 'registrar_llamada':
             resultado = request.form.get('resultado', '').strip() or 'Sin resultado'
@@ -3115,6 +3401,14 @@ def crm_lead_perfil(row_number):
                 'contenido': f"Resultado: {resultado}. {observacion}".strip(),
                 'fecha': crm_now()
             })
+            crm_registrar_actividad(
+                'Llamada registrada',
+                f"Llamada registrada: {resultado}",
+                'lead',
+                row_number,
+                lead.get('nombre', ''),
+                lead.get('propiedad', '')
+            )
 
         elif action == 'convertir_oportunidad':
             notas = crm_notas_lead(row_number)
@@ -3144,6 +3438,14 @@ def crm_lead_perfil(row_number):
                 'contenido': f"Lead convertido a oportunidad en etapa {oportunidad['etapa']}",
                 'fecha': crm_now()
             })
+            crm_registrar_actividad(
+                'Conversión a oportunidad',
+                f"Lead convertido a oportunidad en etapa {oportunidad['etapa']}",
+                'lead',
+                row_number,
+                lead.get('nombre', ''),
+                lead.get('propiedad', '')
+            )
 
         else:
             nota = {
@@ -3156,8 +3458,19 @@ def crm_lead_perfil(row_number):
 
             if nota['contenido']:
                 crm_agregar_csv(CRM_LEAD_NOTAS_CSV, CRM_LEAD_NOTA_HEADERS, nota)
+                crm_registrar_actividad(
+                    'Nota agregada',
+                    f"{nota['tipo']}: {nota['contenido']}",
+                    'lead',
+                    row_number,
+                    lead.get('nombre', ''),
+                    lead.get('propiedad', '')
+                )
 
         return redirect(url_for('crm_lead_perfil', row_number=row_number))
+
+    filtro_actividad = request.args.get('actividad', 'Todo').strip() or 'Todo'
+    filtros_actividad = ['Todo', 'Hoy', 'Semana', 'Mes', 'Llamadas', 'WhatsApp', 'Emails', 'Notas', 'Tareas', 'Visitas']
 
     return render_template(
         'crm/lead_perfil.html',
@@ -3167,6 +3480,15 @@ def crm_lead_perfil(row_number):
         notas=crm_notas_lead(row_number),
         tareas=crm_tareas_asociadas_lead(lead),
         oportunidades=crm_oportunidades_asociadas(lead),
+        actividades=crm_actividades_filtradas(
+            'lead',
+            row_number,
+            lead.get('nombre', ''),
+            lead.get('propiedad', ''),
+            filtro_actividad
+        ),
+        filtros_actividad=filtros_actividad,
+        filtro_actividad=filtro_actividad,
         etapas=CRM_ETAPAS_OPORTUNIDAD,
         prioridades=CRM_PRIORIDADES
     )
@@ -3185,7 +3507,16 @@ def crm_oportunidades():
             if etapa in CRM_ETAPAS_OPORTUNIDAD:
                 for oportunidad in oportunidades:
                     if oportunidad.get('id') == oportunidad_id:
+                        etapa_anterior = oportunidad.get('etapa', '')
                         oportunidad['etapa'] = etapa
+                        crm_registrar_actividad(
+                            'Oportunidad actualizada',
+                            f'Oportunidad movida de {etapa_anterior or "Sin etapa"} a {etapa}',
+                            'contacto',
+                            '',
+                            oportunidad.get('nombre', ''),
+                            oportunidad.get('propiedad', '')
+                        )
                         break
 
                 crm_escribir_csv(
@@ -3212,6 +3543,14 @@ def crm_oportunidades():
             CRM_OPORTUNIDADES_CSV,
             CRM_OPORTUNIDAD_HEADERS,
             oportunidad
+        )
+        crm_registrar_actividad(
+            'Oportunidad creada',
+            f"Oportunidad creada en etapa {oportunidad['etapa']}",
+            'contacto',
+            '',
+            oportunidad.get('nombre', ''),
+            oportunidad.get('propiedad', '')
         )
 
     oportunidades = crm_leer_csv(CRM_OPORTUNIDADES_CSV, CRM_OPORTUNIDAD_HEADERS)
@@ -3546,11 +3885,22 @@ def crm_tareas():
         tarea_id = request.form.get('id', '').strip()
 
         if action == 'delete':
+            tarea_eliminada = next((tarea for tarea in tareas if tarea.get('id') == tarea_id), {})
             tareas = [tarea for tarea in tareas if tarea.get('id') != tarea_id]
             crm_escribir_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tareas)
+            if tarea_eliminada:
+                crm_registrar_actividad(
+                    'Tarea eliminada',
+                    f"Tarea eliminada: {tarea_eliminada.get('titulo', '')}",
+                    'contacto',
+                    '',
+                    tarea_eliminada.get('cliente', ''),
+                    tarea_eliminada.get('propiedad', '')
+                )
             return redirect(url_for('crm_tareas'))
 
         if action in ['complete', 'update']:
+            tarea_actualizada = None
             for tarea in tareas:
                 if tarea.get('id') == tarea_id:
                     if action == 'complete':
@@ -3565,8 +3915,18 @@ def crm_tareas():
                         tarea['estado'] = request.form.get('estado', '').strip() or 'Pendiente'
                         tarea['recordatorio'] = request.form.get('recordatorio', '').strip()
                         tarea['notas'] = request.form.get('notas', '').strip()
+                    tarea_actualizada = tarea.copy()
                     break
             crm_escribir_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tareas)
+            if tarea_actualizada:
+                crm_registrar_actividad(
+                    'Tarea completada' if action == 'complete' else 'Tarea editada',
+                    f"Tarea {'completada' if action == 'complete' else 'editada'}: {tarea_actualizada.get('titulo', '')}",
+                    'contacto',
+                    '',
+                    tarea_actualizada.get('cliente', ''),
+                    tarea_actualizada.get('propiedad', '')
+                )
             return redirect(url_for('crm_tareas'))
 
         tarea = {
@@ -3584,6 +3944,14 @@ def crm_tareas():
             'recordatorio_enviado': ''
         }
         crm_agregar_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS, tarea)
+        crm_registrar_actividad(
+            'Tarea creada',
+            f"Tarea creada: {tarea.get('titulo', '')}",
+            'contacto',
+            '',
+            tarea.get('cliente', ''),
+            tarea.get('propiedad', '')
+        )
         return redirect(url_for('crm_tareas'))
 
     tareas = crm_leer_csv(CRM_TAREAS_CSV, CRM_TAREA_HEADERS)
@@ -3795,6 +4163,14 @@ def crm_clientes_importar():
 
                     clientes.append(cliente)
                     importados += 1
+                    crm_registrar_actividad(
+                        'Contacto importado',
+                        f"Contacto importado desde {fuente}: {cliente.get('nombre', '')}",
+                        'cliente',
+                        cliente.get('id', ''),
+                        cliente.get('nombre', ''),
+                        cliente.get('propiedad', '')
+                    )
                 except Exception:
                     errores += 1
 
@@ -3857,6 +4233,14 @@ def crm_clientes():
             'fecha_creacion': crm_now()
         }
         crm_agregar_csv(CRM_CLIENTES_CSV, CRM_CLIENTE_HEADERS, cliente)
+        crm_registrar_actividad(
+            'Cliente creado',
+            f"Cliente creado: {cliente.get('nombre', '')}",
+            'cliente',
+            cliente.get('id', ''),
+            cliente.get('nombre', ''),
+            cliente.get('propiedad', '')
+        )
 
     clientes = crm_leer_csv(CRM_CLIENTES_CSV, CRM_CLIENTE_HEADERS)
     busqueda = request.args.get('q', '').strip().lower()
@@ -3913,12 +4297,24 @@ def crm_cliente_perfil(cliente_id):
     if not cliente:
         return "Cliente no encontrado.", 404
 
+    filtro_actividad = request.args.get('actividad', 'Todo').strip() or 'Todo'
+    filtros_actividad = ['Todo', 'Hoy', 'Semana', 'Mes', 'Llamadas', 'WhatsApp', 'Emails', 'Notas', 'Tareas', 'Visitas']
+
     return render_template(
         'crm/cliente_perfil.html',
         active='clientes',
         title='Perfil de cliente',
         cliente=cliente,
-        tareas=crm_tareas_asociadas_cliente(cliente)
+        tareas=crm_tareas_asociadas_cliente(cliente),
+        actividades=crm_actividades_filtradas(
+            'cliente',
+            cliente_id,
+            cliente.get('nombre', ''),
+            cliente.get('propiedad', ''),
+            filtro_actividad
+        ),
+        filtros_actividad=filtros_actividad,
+        filtro_actividad=filtro_actividad
     )
 
 @app.route('/crm/agenda', methods=['GET', 'POST'])
@@ -3930,6 +4326,7 @@ def crm_agenda():
         visita_id = request.form.get('id', '').strip()
 
         if action in ['realizada', 'cancelar', 'update']:
+            visita_actualizada = None
             for visita in agenda:
                 if visita.get('id') == visita_id:
                     if action == 'realizada':
@@ -3944,8 +4341,19 @@ def crm_agenda():
                         visita['propiedad'] = request.form.get('propiedad', '').strip()
                         visita['estado'] = request.form.get('estado', '').strip() or 'Agendada'
                         visita['notas'] = request.form.get('notas', '').strip()
+                    visita_actualizada = visita.copy()
                     break
             crm_escribir_csv(CRM_AGENDA_CSV, CRM_AGENDA_HEADERS, agenda)
+            if visita_actualizada:
+                tipo_actividad = 'Visita realizada' if action == 'realizada' else ('Visita cancelada' if action == 'cancelar' else 'Visita editada')
+                crm_registrar_actividad(
+                    tipo_actividad,
+                    f"{tipo_actividad}: {visita_actualizada.get('fecha', '')} {visita_actualizada.get('hora', '')}",
+                    'contacto',
+                    '',
+                    visita_actualizada.get('cliente', ''),
+                    visita_actualizada.get('propiedad', '')
+                )
             return redirect(url_for('crm_agenda'))
 
         visita = {
@@ -3960,6 +4368,14 @@ def crm_agenda():
             'fecha_creacion': crm_now()
         }
         crm_agregar_csv(CRM_AGENDA_CSV, CRM_AGENDA_HEADERS, visita)
+        crm_registrar_actividad(
+            'Visita creada',
+            f"Visita creada: {visita.get('fecha', '')} {visita.get('hora', '')}",
+            'contacto',
+            '',
+            visita.get('cliente', ''),
+            visita.get('propiedad', '')
+        )
         return redirect(url_for('crm_agenda'))
 
     agenda = crm_leer_csv(CRM_AGENDA_CSV, CRM_AGENDA_HEADERS)

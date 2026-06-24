@@ -35,8 +35,8 @@
         </a>
         <div class="quick-actions">
             <a class="btn secondary" href="tel:{{ lead.telefono }}">Llamar</a>
-            <a class="btn secondary" href="https://wa.me/{{ lead.telefono|replace(' ', '') }}" target="_blank">WhatsApp</a>
-            <a class="btn secondary" href="mailto:{{ lead.email }}">Email</a>
+            <a class="btn secondary" href="/crm/lead/{{ lead.row_number }}/whatsapp" target="_blank">WhatsApp</a>
+            <a class="btn secondary" href="/crm/lead/{{ lead.row_number }}/email">Email</a>
             <a class="btn secondary" href="/crm/lead/{{ lead.row_number }}">Agendar visita</a>
             <a class="btn secondary" href="/crm/lead/{{ lead.row_number }}">Crear tarea</a>
         </div>

@@ -20,6 +20,8 @@
         <a class="ops-card warning" href="/crm/clientes"><div class="ops-top"><div><span>Sin contacto 7 días</span><small>Clientes a retomar</small></div><div class="ops-icon">7D</div></div><strong>{{ clientes_sin_contacto|length }}</strong></a>
         <a class="ops-card soft" href="/crm/leads"><div class="ops-top"><div><span>Sin seguimiento</span><small>Leads sin tarea</small></div><div class="ops-icon">SS</div></div><strong>{{ leads_sin_seguimiento|length }}</strong></a>
         <a class="ops-card" href="/crm/agenda"><div class="ops-top"><div><span>Visitas pendientes</span><small>Por confirmar o realizar</small></div><div class="ops-icon">VP</div></div><strong>{{ visitas_pendientes|length }}</strong></a>
+        <a class="ops-card soft" href="#ultimas-actividades"><div class="ops-top"><div><span>Actividad de hoy</span><small>Acciones registradas</small></div><div class="ops-icon">AH</div></div><strong>{{ actividades_hoy|length }}</strong></a>
+        <a class="ops-card" href="#ultimas-actividades"><div class="ops-top"><div><span>Esta semana</span><small>Actividad comercial</small></div><div class="ops-icon">AS</div></div><strong>{{ actividades_semana|length }}</strong></a>
     </div>
 </section>
 
@@ -50,6 +52,14 @@
                 {% for tarea in proximas_tareas %}
                 <a class="row-card" href="/crm/tareas"><strong>{{ tarea.titulo }}</strong><p>{{ tarea.fecha_limite }}{% if tarea.hora_limite %} {{ tarea.hora_limite }}{% endif %} · {{ tarea.cliente or tarea.propiedad or "Sin cliente" }}</p></a>
                 {% else %}<p class="muted">No hay próximas tareas cargadas.</p>{% endfor %}
+            </div>
+        </div>
+        <div class="panel" id="ultimas-actividades">
+            <div class="section-head"><div><h2>Últimas actividades</h2><p>Los 10 movimientos más recientes del CRM.</p></div></div>
+            <div class="activity-timeline">
+                {% for actividad in actividades_ultimas %}
+                <div class="activity-item"><div class="activity-icon">{{ actividad.icono }}</div><div class="activity-card"><div class="activity-card-head"><h3>{{ actividad.tipo }}</h3><small class="muted">{{ actividad.fecha }}</small></div><p>{{ actividad.descripcion }}</p><div class="activity-meta"><span class="pill teal">{{ actividad.usuario or "Sistema" }}</span>{% if actividad.entidad_nombre %}<span class="pill">{{ actividad.entidad_nombre }}</span>{% endif %}</div></div></div>
+                {% else %}<p class="muted">Todavía no hay actividad registrada.</p>{% endfor %}
             </div>
         </div>
         <div class="panel">

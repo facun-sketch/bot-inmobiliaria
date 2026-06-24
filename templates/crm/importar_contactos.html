@@ -1,42 +1,73 @@
 {% extends "crm/base.html" %}
 
 {% block content %}
-<div class="page-head"><div class="page-title"><h1>Importar contactos</h1><p>Seleccioná contactos del teléfono cuando el navegador lo permita, o subí un archivo CSV/VCF.</p></div><a class="btn secondary" href="/crm/clientes">Volver</a></div>
+<div class="page-head"><div class="page-title"><h1>Importar contactos</h1><p>Exportá tus contactos desde iCloud, Outlook o Gmail y subí el archivo CSV/VCF al CRM.</p></div><a class="btn secondary" href="/crm/clientes">Volver</a></div>
 
 {% if error %}<div class="panel" style="border-color:#f0b8bd;background:#fff7f8"><p class="muted" style="margin:0">{{ error }}</p></div>{% endif %}
 {% if resultado %}<div class="hero-panel"><div class="hero-row" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="ops-card"><div class="ops-top"><div><span>Importados</span><small>Clientes nuevos</small></div><div class="ops-icon">OK</div></div><strong>{{ resultado.importados }}</strong></div><div class="ops-card soft"><div class="ops-top"><div><span>Duplicados</span><small>Omitidos</small></div><div class="ops-icon">DU</div></div><strong>{{ resultado.duplicados }}</strong></div><div class="ops-card warning"><div class="ops-top"><div><span>Con error</span><small>No procesados</small></div><div class="ops-icon">ER</div></div><strong>{{ resultado.errores }}</strong></div></div></div>{% endif %}
 
 <style>
-    .contact-import-actions{display:grid;gap:14px;margin-bottom:16px}
-    .phone-import-card{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:var(--shadow-soft)}
-    .phone-import-card h2{margin:0 0 4px;font-size:18px;color:var(--ink)}
-    .phone-import-card p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
-    .phone-import-card .btn{white-space:nowrap;min-height:44px}
-    .contact-fallback{display:none;margin-top:10px;color:var(--muted);font-size:14px}
-    .contact-status{margin-top:10px;color:var(--muted);font-size:14px}
-    @media (max-width:720px){.phone-import-card{align-items:stretch;flex-direction:column}.phone-import-card .btn{width:100%;justify-content:center}.contact-import-actions{gap:12px}}
+    .contact-guide{display:grid;gap:16px;margin-bottom:18px}
+    .contact-guide-hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;padding:20px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:var(--shadow-soft)}
+    .contact-guide-hero h2{margin:0 0 6px;font-size:20px;color:var(--ink)}
+    .contact-guide-hero p{margin:0;color:var(--muted);font-size:14px;line-height:1.5}
+    .contact-guide-badge{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:18px;background:#edf6f4;color:#315f58;font-weight:800}
+    .contact-guide-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .contact-step-card{padding:16px;border:1px solid var(--line);border-radius:16px;background:#fff}
+    .contact-step-card h3{margin:0 0 10px;font-size:16px;color:var(--ink)}
+    .contact-step-card ol{margin:0;padding-left:20px;color:var(--muted);font-size:14px;line-height:1.55}
+    .contact-step-card li+li{margin-top:6px}
+    .contact-step-label{display:inline-flex;margin-bottom:10px;padding:5px 10px;border-radius:999px;background:#f4f6f6;color:#4f6662;font-size:12px;font-weight:700}
+    .contact-import-note{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+    @media (max-width:900px){.contact-guide-grid{grid-template-columns:1fr}.contact-guide-hero{grid-template-columns:1fr}.contact-guide-badge{width:48px;height:48px}}
 </style>
 
-<section class="contact-import-actions">
-    <div class="phone-import-card">
+<section class="contact-guide">
+    <div class="contact-guide-hero">
         <div>
-            <h2>Contactos del teléfono</h2>
-            <p>Elegí uno o varios contactos y revisalos antes de importarlos al CRM.</p>
-            <p id="contact-picker-fallback" class="contact-fallback">Exportá tus contactos desde iCloud (.vcf) y subilos aquí.</p>
-            <p id="contact-picker-status" class="contact-status" aria-live="polite"></p>
+            <h2>Asistente para traer contactos del teléfono</h2>
+            <p>Safari en iPhone no permite importar contactos directamente desde el navegador. Primero exportá tus contactos desde iCloud, Outlook o Gmail, y después subí el archivo aquí para revisar la vista previa antes de guardarlos.</p>
         </div>
-        <button class="btn" type="button" id="pick-phone-contacts">Importar desde Contactos del teléfono</button>
+        <div class="contact-guide-badge">CSV</div>
     </div>
 
-    <form id="phone-contacts-form" method="POST" action="/crm/clientes/importar">
-        <input type="hidden" name="action" value="contact_picker">
-        <input type="hidden" name="contactos_json" id="contactos-json">
-    </form>
+    <div class="contact-guide-grid">
+        <div class="contact-step-card">
+            <span class="contact-step-label">iPhone / iCloud</span>
+            <h3>Exportar desde iCloud</h3>
+            <ol>
+                <li>Entrá a iCloud.com desde el navegador.</li>
+                <li>Abrí Contactos y seleccioná los contactos.</li>
+                <li>Elegí Exportar vCard.</li>
+                <li>Subí el archivo .vcf en el formulario de abajo.</li>
+            </ol>
+        </div>
+        <div class="contact-step-card">
+            <span class="contact-step-label">Outlook</span>
+            <h3>Exportar desde Outlook</h3>
+            <ol>
+                <li>Entrá a Outlook.com y abrí Personas.</li>
+                <li>Seleccioná Administrar contactos.</li>
+                <li>Elegí Exportar contactos.</li>
+                <li>Subí el archivo .csv en el formulario de abajo.</li>
+            </ol>
+        </div>
+        <div class="contact-step-card">
+            <span class="contact-step-label">Gmail</span>
+            <h3>Exportar desde Gmail</h3>
+            <ol>
+                <li>Entrá a contacts.google.com.</li>
+                <li>Seleccioná los contactos que querés importar.</li>
+                <li>Elegí Exportar en formato CSV o vCard.</li>
+                <li>Subí el archivo .csv o .vcf en el formulario de abajo.</li>
+            </ol>
+        </div>
+    </div>
 </section>
 
 <section class="panel soft-form">
     <form method="POST" action="/crm/clientes/importar" enctype="multipart/form-data" class="grid cols-2">
-        <div><label>Archivo de contactos</label><input name="archivo" type="file" accept=".csv,.vcf,text/csv,text/vcard" required></div>
+        <div><label>Archivo de contactos</label><input name="archivo" type="file" accept=".csv,.vcf,text/csv,text/vcard" required><p class="contact-import-note">Formatos permitidos: CSV y VCF. Antes de importar vas a ver una vista previa.</p></div>
         <div style="align-self:end"><button class="btn" type="submit">Ver vista previa</button></div>
     </form>
 </section>
@@ -48,62 +79,4 @@
     <form method="POST" action="/crm/clientes/importar" style="margin-top:12px"><input type="hidden" name="action" value="confirmar"><button class="btn" type="submit">Confirmar importación</button></form>
 </section>
 {% endif %}
-
-<script>
-(function(){
-    const pickButton = document.getElementById('pick-phone-contacts');
-    const fallback = document.getElementById('contact-picker-fallback');
-    const status = document.getElementById('contact-picker-status');
-    const form = document.getElementById('phone-contacts-form');
-    const input = document.getElementById('contactos-json');
-
-    function showFallback(){
-        fallback.style.display = 'block';
-        pickButton.disabled = true;
-        pickButton.classList.add('secondary');
-        status.textContent = 'Tu navegador no permite seleccionar contactos directamente.';
-    }
-
-    function firstValue(value){
-        if (Array.isArray(value)) return value[0] || '';
-        return value || '';
-    }
-
-    if (!navigator.contacts || typeof navigator.contacts.select !== 'function') {
-        showFallback();
-        return;
-    }
-
-    pickButton.addEventListener('click', async function(){
-        try {
-            status.textContent = 'Abriendo contactos...';
-            const contactos = await navigator.contacts.select(['name', 'tel', 'email'], { multiple: true });
-            const normalizados = contactos.map(function(contacto){
-                return {
-                    nombre: firstValue(contacto.name).trim(),
-                    telefono: firstValue(contacto.tel).trim(),
-                    email: firstValue(contacto.email).trim()
-                };
-            }).filter(function(contacto){
-                return contacto.nombre || contacto.telefono || contacto.email;
-            });
-
-            if (!normalizados.length) {
-                status.textContent = 'No seleccionaste contactos para importar.';
-                return;
-            }
-
-            input.value = JSON.stringify(normalizados);
-            form.submit();
-        } catch (error) {
-            if (error && error.name === 'AbortError') {
-                status.textContent = 'Selección cancelada.';
-                return;
-            }
-            status.textContent = 'No se pudieron leer los contactos. Podés subir un archivo .vcf como respaldo.';
-            fallback.style.display = 'block';
-        }
-    });
-})();
-</script>
 {% endblock %}
