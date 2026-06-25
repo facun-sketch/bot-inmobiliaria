@@ -2314,7 +2314,20 @@ CRM_ACTIVIDAD_HEADERS = [
     'entidad_tipo',
     'entidad_id',
     'entidad_nombre',
-    'entidad_propiedad'
+    'entidad_propiedad',
+    'manual',
+    'titulo',
+    'detalle',
+    'resultado',
+    'proximo_paso',
+    'proximo_seguimiento_fecha',
+    'proximo_seguimiento_hora',
+    'duracion',
+    'mensaje_enviado',
+    'respuesta_recibida',
+    'asunto',
+    'observaciones',
+    'updated_at'
 ]
 
 CRM_ETAPAS_OPORTUNIDAD = [
@@ -2358,23 +2371,175 @@ def crm_usuario_actual():
 
     return session.get('crm_user') or 'Sistema'
 
-def crm_registrar_actividad(tipo, descripcion, entidad_tipo='', entidad_id='', entidad_nombre='', entidad_propiedad='', usuario=None):
+CRM_TIPOS_ACTIVIDAD_MANUAL = [
+    'Nota',
+    'Llamada',
+    'WhatsApp / Mensaje',
+    'Email',
+    'Reunión',
+    'Visita',
+    'Seguimiento'
+]
+
+CRM_RESULTADOS_ACTIVIDAD_MANUAL = [
+    'Sin respuesta',
+    'Interesado',
+    'No interesado',
+    'Visita agendada',
+    'Venta cerrada',
+    'Pendiente'
+]
+
+def crm_fecha_hora_actividad(fecha='', hora=''):
+
+    fecha = (fecha or '').strip()
+    hora = (hora or '').strip()
+
+    if fecha and hora:
+        return f'{fecha} {hora}:00'
+    if fecha:
+        return f'{fecha} 00:00:00'
+
+    return crm_now()
+
+def crm_descripcion_actividad_manual(datos):
+
+    partes = []
+
+    for campo, etiqueta in [
+        ('titulo', 'Título'),
+        ('detalle', 'Descripción'),
+        ('resultado', 'Resultado'),
+        ('proximo_paso', 'Próximo paso'),
+        ('proximo_seguimiento_fecha', 'Próximo seguimiento fecha'),
+        ('proximo_seguimiento_hora', 'Próximo seguimiento hora'),
+        ('duracion', 'Duración'),
+        ('mensaje_enviado', 'Mensaje enviado'),
+        ('respuesta_recibida', 'Respuesta recibida'),
+        ('asunto', 'Asunto'),
+        ('observaciones', 'Observaciones')
+    ]:
+        valor = (datos.get(campo) or '').strip()
+        if valor:
+            partes.append(f'{etiqueta}: {valor}')
+
+    return ' | '.join(partes) or 'Actividad manual registrada.'
+
+def crm_datos_actividad_form(form):
+
+    tipo = form.get('tipo', '').strip() or 'Nota'
+    if tipo not in CRM_TIPOS_ACTIVIDAD_MANUAL:
+        tipo = 'Nota'
+
+    datos = {
+        'tipo': tipo,
+        'fecha': crm_fecha_hora_actividad(form.get('fecha', ''), form.get('hora', '')),
+        'titulo': form.get('titulo', '').strip(),
+        'detalle': form.get('descripcion', '').strip(),
+        'resultado': form.get('resultado', '').strip(),
+        'proximo_paso': form.get('proximo_paso', '').strip(),
+        'proximo_seguimiento_fecha': form.get('proximo_seguimiento_fecha', '').strip(),
+        'proximo_seguimiento_hora': form.get('proximo_seguimiento_hora', '').strip(),
+        'duracion': form.get('duracion', '').strip(),
+        'mensaje_enviado': form.get('mensaje_enviado', '').strip(),
+        'respuesta_recibida': form.get('respuesta_recibida', '').strip(),
+        'asunto': form.get('asunto', '').strip(),
+        'observaciones': form.get('observaciones', '').strip()
+    }
+    datos['descripcion_final'] = crm_descripcion_actividad_manual(datos)
+    return datos
+
+def crm_registrar_actividad(tipo, descripcion, entidad_tipo='', entidad_id='', entidad_nombre='', entidad_propiedad='', usuario=None, manual='No', extras=None):
 
     try:
+        extras = extras or {}
         actividad = {
             'id': crm_generar_id('act'),
-            'fecha': crm_now(),
+            'fecha': extras.get('fecha') or crm_now(),
             'tipo': tipo,
             'usuario': usuario or crm_usuario_actual(),
             'descripcion': descripcion,
             'entidad_tipo': entidad_tipo,
             'entidad_id': str(entidad_id or ''),
             'entidad_nombre': entidad_nombre or '',
-            'entidad_propiedad': entidad_propiedad or ''
+            'entidad_propiedad': entidad_propiedad or '',
+            'manual': manual,
+            'titulo': extras.get('titulo', ''),
+            'detalle': extras.get('detalle', ''),
+            'resultado': extras.get('resultado', ''),
+            'proximo_paso': extras.get('proximo_paso', ''),
+            'proximo_seguimiento_fecha': extras.get('proximo_seguimiento_fecha', ''),
+            'proximo_seguimiento_hora': extras.get('proximo_seguimiento_hora', ''),
+            'duracion': extras.get('duracion', ''),
+            'mensaje_enviado': extras.get('mensaje_enviado', ''),
+            'respuesta_recibida': extras.get('respuesta_recibida', ''),
+            'asunto': extras.get('asunto', ''),
+            'observaciones': extras.get('observaciones', ''),
+            'updated_at': extras.get('updated_at', '')
         }
         crm_agregar_csv(CRM_ACTIVIDADES_CSV, CRM_ACTIVIDAD_HEADERS, actividad)
     except Exception as e:
         print(f'Error registrando actividad CRM: {e}')
+
+def crm_registrar_actividad_manual(entidad_tipo, entidad_id, entidad_nombre, entidad_propiedad, form):
+
+    datos = crm_datos_actividad_form(form)
+    crm_registrar_actividad(
+        datos['tipo'],
+        datos['descripcion_final'],
+        entidad_tipo,
+        entidad_id,
+        entidad_nombre,
+        entidad_propiedad,
+        manual='Si',
+        extras=datos
+    )
+
+def crm_actualizar_actividad_manual(actividad_id, form):
+
+    actividades = crm_leer_csv(CRM_ACTIVIDADES_CSV, CRM_ACTIVIDAD_HEADERS)
+    actualizada = False
+
+    for actividad in actividades:
+        if actividad.get('id') == actividad_id and actividad.get('manual') == 'Si':
+            datos = crm_datos_actividad_form(form)
+            actividad['fecha'] = datos['fecha']
+            actividad['tipo'] = datos['tipo']
+            actividad['descripcion'] = datos['descripcion_final']
+            actividad['titulo'] = datos['titulo']
+            actividad['detalle'] = datos['detalle']
+            actividad['resultado'] = datos['resultado']
+            actividad['proximo_paso'] = datos['proximo_paso']
+            actividad['proximo_seguimiento_fecha'] = datos['proximo_seguimiento_fecha']
+            actividad['proximo_seguimiento_hora'] = datos['proximo_seguimiento_hora']
+            actividad['duracion'] = datos['duracion']
+            actividad['mensaje_enviado'] = datos['mensaje_enviado']
+            actividad['respuesta_recibida'] = datos['respuesta_recibida']
+            actividad['asunto'] = datos['asunto']
+            actividad['observaciones'] = datos['observaciones']
+            actividad['updated_at'] = crm_now()
+            actualizada = True
+            break
+
+    if actualizada:
+        crm_escribir_csv(CRM_ACTIVIDADES_CSV, CRM_ACTIVIDAD_HEADERS, actividades)
+
+    return actualizada
+
+def crm_eliminar_actividad_manual(actividad_id):
+
+    actividades = crm_leer_csv(CRM_ACTIVIDADES_CSV, CRM_ACTIVIDAD_HEADERS)
+    nuevas = [
+        actividad
+        for actividad in actividades
+        if not (actividad.get('id') == actividad_id and actividad.get('manual') == 'Si')
+    ]
+
+    if len(nuevas) != len(actividades):
+        crm_escribir_csv(CRM_ACTIVIDADES_CSV, CRM_ACTIVIDAD_HEADERS, nuevas)
+        return True
+
+    return False
 
 def crm_actividad_fecha(actividad):
 
@@ -2384,23 +2549,23 @@ def crm_actividad_icono(tipo):
 
     tipo = (tipo or '').lower()
     if 'llamada' in tipo:
-        return 'LL'
-    if 'whatsapp' in tipo:
-        return 'WA'
+        return '\U0001f4de'
+    if 'whatsapp' in tipo or 'mensaje' in tipo:
+        return '\U0001f4ac'
     if 'email' in tipo:
-        return 'EM'
+        return '\U0001f4e7'
     if 'nota' in tipo:
-        return 'NO'
-    if 'tarea' in tipo:
-        return 'TA'
+        return '\U0001f4dd'
+    if 'reunión' in tipo or 'reunion' in tipo:
+        return '\U0001f4c5'
     if 'visita' in tipo:
-        return 'VI'
+        return '\U0001f3e0'
+    if 'tarea' in tipo:
+        return '✓'
     if 'oportunidad' in tipo:
         return 'OP'
     if 'cliente' in tipo:
         return 'CL'
-    if 'lead' in tipo:
-        return 'LD'
     return 'AC'
 
 def crm_actividades_todas():
@@ -3331,6 +3496,52 @@ def crm_cliente_email(cliente_id):
     )
     return redirect(f"mailto:{cliente.get('email', '')}")
 
+
+@app.route('/crm/lead/<int:row_number>/actividad', methods=['POST'])
+def crm_lead_actividad(row_number):
+
+    lead = crm_lead_por_row(row_number)
+    if not lead:
+        return "Lead no encontrado.", 404
+
+    crm_registrar_actividad_manual(
+        'lead',
+        row_number,
+        lead.get('nombre', ''),
+        lead.get('propiedad', ''),
+        request.form
+    )
+    return redirect(request.form.get('next') or url_for('crm_lead_perfil', row_number=row_number))
+
+@app.route('/crm/cliente/<cliente_id>/actividad', methods=['POST'])
+def crm_cliente_actividad(cliente_id):
+
+    cliente = crm_cliente_por_id(cliente_id)
+    if not cliente:
+        return "Cliente no encontrado.", 404
+
+    crm_registrar_actividad_manual(
+        'cliente',
+        cliente_id,
+        cliente.get('nombre', ''),
+        cliente.get('propiedad', ''),
+        request.form
+    )
+    return redirect(request.form.get('next') or url_for('crm_cliente_perfil', cliente_id=cliente_id))
+
+@app.route('/crm/actividad/<actividad_id>', methods=['POST'])
+def crm_actividad_editar(actividad_id):
+
+    action = request.form.get('action', '').strip() or 'update'
+    next_url = request.form.get('next') or url_for('crm_dashboard')
+
+    if action == 'delete':
+        crm_eliminar_actividad_manual(actividad_id)
+    else:
+        crm_actualizar_actividad_manual(actividad_id, request.form)
+
+    return redirect(next_url)
+
 @app.route('/crm/lead/<int:row_number>', methods=['GET', 'POST'])
 def crm_lead_perfil(row_number):
 
@@ -3501,6 +3712,10 @@ def crm_lead_perfil(row_number):
         ),
         filtros_actividad=filtros_actividad,
         filtro_actividad=filtro_actividad,
+        tipos_actividad_manual=CRM_TIPOS_ACTIVIDAD_MANUAL,
+        resultados_actividad_manual=CRM_RESULTADOS_ACTIVIDAD_MANUAL,
+        actividad_action=url_for('crm_lead_actividad', row_number=row_number),
+        actividad_next=request.full_path,
         etapas=CRM_ETAPAS_OPORTUNIDAD,
         prioridades=CRM_PRIORIDADES
     )
@@ -4326,7 +4541,11 @@ def crm_cliente_perfil(cliente_id):
             filtro_actividad
         ),
         filtros_actividad=filtros_actividad,
-        filtro_actividad=filtro_actividad
+        filtro_actividad=filtro_actividad,
+        tipos_actividad_manual=CRM_TIPOS_ACTIVIDAD_MANUAL,
+        resultados_actividad_manual=CRM_RESULTADOS_ACTIVIDAD_MANUAL,
+        actividad_action=url_for('crm_cliente_actividad', cliente_id=cliente_id),
+        actividad_next=request.full_path
     )
 
 @app.route('/crm/agenda', methods=['GET', 'POST'])

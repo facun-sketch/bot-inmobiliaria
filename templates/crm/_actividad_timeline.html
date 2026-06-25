@@ -1,0 +1,99 @@
+<div class="section-head"><div><h2>Actividad</h2><p>{{ actividad_subtitulo }}</p></div></div>
+
+<details class="activity-form-panel">
+    <summary class="btn">+ Nueva actividad</summary>
+    <form method="POST" action="{{ actividad_action }}" class="activity-form grid cols-2">
+        <input type="hidden" name="next" value="{{ actividad_next }}">
+        <div><label>Tipo de actividad</label><select name="tipo">{% for tipo in tipos_actividad_manual %}<option value="{{ tipo }}">{{ tipo }}</option>{% endfor %}</select></div>
+        <div><label>Fecha</label><input name="fecha" type="date"></div>
+        <div><label>Hora</label><input name="hora" type="time"></div>
+        <div class="wide"><label>Título</label><input name="titulo" placeholder="Ej: seguimiento de compra"></div>
+        <div class="wide"><label>Descripción</label><textarea name="descripcion" placeholder="Detalle de la actividad comercial"></textarea></div>
+        <div><label>Resultado</label><select name="resultado"><option value="">Seleccionar</option>{% for resultado in resultados_actividad_manual %}<option value="{{ resultado }}">{{ resultado }}</option>{% endfor %}</select></div>
+        <div><label>Duración</label><input name="duracion" placeholder="Ej: 12 minutos"></div>
+        <div class="wide"><label>Mensaje enviado</label><textarea name="mensaje_enviado" placeholder="WhatsApp o mensaje enviado"></textarea></div>
+        <div class="wide"><label>Respuesta recibida</label><textarea name="respuesta_recibida" placeholder="Respuesta del cliente"></textarea></div>
+        <div><label>Asunto</label><input name="asunto" placeholder="Para emails o reuniones"></div>
+        <div><label>Próximo paso</label><input name="proximo_paso" placeholder="Ej: llamar mañana"></div>
+        <div><label>Próximo seguimiento - Fecha</label><input name="proximo_seguimiento_fecha" type="date"></div>
+        <div><label>Próximo seguimiento - Hora</label><input name="proximo_seguimiento_hora" type="time"></div>
+        <div class="wide"><label>Observaciones</label><textarea name="observaciones" placeholder="Notas posteriores o comentarios"></textarea></div>
+        <div class="activity-actions"><button class="btn" type="submit">Guardar actividad</button></div>
+    </form>
+</details>
+
+<div class="activity-tabs">{% for filtro in filtros_actividad %}<a class="{{ 'active' if filtro_actividad == filtro else '' }}" href="{{ actividad_base_url }}?actividad={{ filtro }}">{{ filtro }}</a>{% endfor %}</div>
+<div class="activity-timeline">
+    {% for actividad in actividades %}
+    <div class="activity-item">
+        <div class="activity-icon">{{ actividad.icono }}</div>
+        <div class="activity-card activity-card-manual-{{ actividad.manual == 'Si' }}">
+            <div class="activity-card-head">
+                <div>
+                    <h3>{{ actividad.icono }} {{ actividad.tipo }}</h3>
+                    {% if actividad.titulo %}<strong class="activity-title">{{ actividad.titulo }}</strong>{% endif %}
+                </div>
+                <small class="muted">{{ actividad.fecha[:10] }} {{ actividad.fecha[11:16] }}</small>
+            </div>
+
+            {% if actividad.manual == 'Si' %}
+            <div class="activity-content">
+                {% if actividad.detalle %}<p>{{ actividad.detalle }}</p>{% endif %}
+                {% if actividad.mensaje_enviado %}<div><span>Mensaje enviado:</span><p>{{ actividad.mensaje_enviado }}</p></div>{% endif %}
+                {% if actividad.respuesta_recibida %}<div><span>Respuesta recibida:</span><p>{{ actividad.respuesta_recibida }}</p></div>{% endif %}
+                {% if actividad.asunto %}<div><span>Asunto:</span><p>{{ actividad.asunto }}</p></div>{% endif %}
+                {% if actividad.duracion %}<div><span>Duración:</span><p>{{ actividad.duracion }}</p></div>{% endif %}
+                {% if actividad.observaciones %}<div><span>Observaciones:</span><p>{{ actividad.observaciones }}</p></div>{% endif %}
+                {% if actividad.resultado %}<div><span>Resultado:</span><p>{{ actividad.resultado }}</p></div>{% endif %}
+                {% if actividad.proximo_paso %}<div><span>Próximo paso:</span><p>{{ actividad.proximo_paso }}</p></div>{% endif %}
+                {% if actividad.proximo_seguimiento_fecha or actividad.proximo_seguimiento_hora %}<div><span>Próximo seguimiento:</span><p>{{ actividad.proximo_seguimiento_fecha }} {{ actividad.proximo_seguimiento_hora }}</p></div>{% endif %}
+            </div>
+            {% else %}
+            <p>{{ actividad.descripcion }}</p>
+            {% endif %}
+
+            <div class="activity-meta">
+                <span class="pill teal">{{ actividad.usuario or "Sistema" }}</span>
+                <span class="pill">Creada: {{ actividad.fecha[:10] }} {{ actividad.fecha[11:16] }}</span>
+                {% if actividad.updated_at %}<span class="pill">Última modificación: {{ actividad.updated_at }}</span>{% endif %}
+                {% if actividad.entidad_propiedad %}<span class="pill">{{ actividad.entidad_propiedad }}</span>{% endif %}
+                {% if actividad.manual == 'Si' %}<span class="pill good">Manual</span>{% endif %}
+            </div>
+
+            {% if actividad.manual == 'Si' %}
+            <div class="activity-card-actions">
+                <details class="activity-edit">
+                    <summary class="btn secondary">Editar</summary>
+                    <form method="POST" action="/crm/actividad/{{ actividad.id }}" class="activity-form grid cols-2">
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="next" value="{{ actividad_next }}">
+                        <div><label>Tipo de actividad</label><select name="tipo">{% for tipo in tipos_actividad_manual %}<option value="{{ tipo }}" {% if actividad.tipo == tipo %}selected{% endif %}>{{ tipo }}</option>{% endfor %}</select></div>
+                        <div><label>Fecha</label><input name="fecha" type="date" value="{{ actividad.fecha[:10] }}"></div>
+                        <div><label>Hora</label><input name="hora" type="time" value="{{ actividad.fecha[11:16] }}"></div>
+                        <div class="wide"><label>Título</label><input name="titulo" value="{{ actividad.titulo }}"></div>
+                        <div class="wide"><label>Descripción</label><textarea name="descripcion">{{ actividad.detalle or actividad.descripcion }}</textarea></div>
+                        <div><label>Resultado</label><select name="resultado"><option value="">Seleccionar</option>{% for resultado in resultados_actividad_manual %}<option value="{{ resultado }}" {% if actividad.resultado == resultado %}selected{% endif %}>{{ resultado }}</option>{% endfor %}</select></div>
+                        <div><label>Duración</label><input name="duracion" value="{{ actividad.duracion }}"></div>
+                        <div class="wide"><label>Mensaje enviado</label><textarea name="mensaje_enviado">{{ actividad.mensaje_enviado }}</textarea></div>
+                        <div class="wide"><label>Respuesta recibida</label><textarea name="respuesta_recibida">{{ actividad.respuesta_recibida }}</textarea></div>
+                        <div><label>Asunto</label><input name="asunto" value="{{ actividad.asunto }}"></div>
+                        <div><label>Próximo paso</label><input name="proximo_paso" value="{{ actividad.proximo_paso }}"></div>
+                        <div><label>Próximo seguimiento - Fecha</label><input name="proximo_seguimiento_fecha" type="date" value="{{ actividad.proximo_seguimiento_fecha }}"></div>
+                        <div><label>Próximo seguimiento - Hora</label><input name="proximo_seguimiento_hora" type="time" value="{{ actividad.proximo_seguimiento_hora }}"></div>
+                        <div class="wide"><label>Observaciones</label><textarea name="observaciones">{{ actividad.observaciones }}</textarea></div>
+                        <div class="activity-actions"><button class="btn" type="submit">Guardar cambios</button><a class="btn secondary" href="{{ actividad_next }}">Cancelar</a></div>
+                    </form>
+                </details>
+                <form method="POST" action="/crm/actividad/{{ actividad.id }}" class="activity-delete">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="next" value="{{ actividad_next }}">
+                    <button class="btn secondary" type="submit">Eliminar</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="activity-item"><div class="activity-icon">{{ actividad_empty_icon }}</div><div class="activity-card"><h3>{{ actividad_empty_title }}</h3><p>{{ actividad_empty_text }}</p></div></div>
+    {% endfor %}
+</div>
