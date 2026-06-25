@@ -3040,37 +3040,11 @@ def crm_tareas_por_prioridad_notificacion(tareas):
 
     return grupos
 
-def crm_cliente_ya_existe_como_lead(cliente, leads):
-
-    cliente_telefono = crm_normalizar_contacto_valor(cliente.get('telefono'))
-    cliente_email = (cliente.get('email') or '').strip().lower()
-
-    for lead in leads:
-        lead_telefono = crm_normalizar_contacto_valor(lead.get('telefono'))
-        lead_email = (lead.get('email') or '').strip().lower()
-
-        if cliente_telefono and lead_telefono and cliente_telefono == lead_telefono:
-            return True
-
-        if cliente_email and lead_email and cliente_email == lead_email:
-            return True
-
-    return False
-
-
-def crm_clientes_manuales_prioridad(leads, clientes):
+def crm_clientes_prioridad_inicio(leads, clientes):
 
     clientes_prioridad = []
 
     for cliente in sorted(clientes, key=lambda item: item.get('fecha_creacion', ''), reverse=True):
-        fuente = cliente.get('fuente') or 'Manual'
-
-        if fuente != 'Manual':
-            continue
-
-        if crm_cliente_ya_existe_como_lead(cliente, leads):
-            continue
-
         clientes_prioridad.append(cliente)
 
     return clientes_prioridad
@@ -3106,7 +3080,7 @@ def crm_dashboard_context():
     visitas_pendientes = crm_visitas_pendientes(agenda)
     tareas_por_prioridad = crm_tareas_por_prioridad_notificacion(tareas)
     actividades_ultimas, actividades_hoy, actividades_semana = crm_actividad_resumen()
-    clientes_manuales_prioridad = crm_clientes_manuales_prioridad(leads, clientes)
+    clientes_prioridad_inicio = crm_clientes_prioridad_inicio(leads, clientes)
 
     fuentes = {}
     for lead in leads:
@@ -3123,7 +3097,7 @@ def crm_dashboard_context():
 
     return {
         'leads': leads,
-        'clientes_manuales_prioridad': clientes_manuales_prioridad,
+        'clientes_prioridad_inicio': clientes_prioridad_inicio,
         'leads_nuevos': leads_nuevos,
         'leads_sin_contactar': crm_leads_sin_contactar(leads),
         'visitas_proximas': visitas_proximas,
