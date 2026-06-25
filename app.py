@@ -3040,61 +3040,41 @@ def crm_tareas_por_prioridad_notificacion(tareas):
 
     return grupos
 
-def crm_prioridad_contacto_key(contacto):
+def crm_cliente_ya_existe_como_lead(cliente, leads):
 
-    telefono = crm_normalizar_contacto_valor(contacto.get('telefono'))
-    email = (contacto.get('email') or '').strip().lower()
-
-    if telefono:
-        return f'tel:{telefono}'
-    if email:
-        return f'email:{email}'
-
-    nombre = (contacto.get('nombre') or '').strip().lower()
-    propiedad = (contacto.get('propiedad') or '').strip().lower()
-    return f'nombre:{nombre}|propiedad:{propiedad}'
-
-
-def crm_prioridad_comercial(leads, clientes, limite=6):
-
-    contactos = []
-    vistos = set()
+    cliente_telefono = crm_normalizar_contacto_valor(cliente.get('telefono'))
+    cliente_email = (cliente.get('email') or '').strip().lower()
 
     for lead in leads:
-        item = lead.copy()
-        item['tipo_contacto'] = 'lead'
-        item['href'] = f"/crm/lead/{lead.get('row_number')}"
-        item['prioridad'] = lead.get('prioridad') or 'Media'
-        item['estado'] = lead.get('estado') or 'Nuevo'
-        item['fecha_prioridad'] = lead.get('fecha', '')
-        clave = crm_prioridad_contacto_key(item)
-        if clave and clave not in vistos:
-            vistos.add(clave)
-            contactos.append(item)
+        lead_telefono = crm_normalizar_contacto_valor(lead.get('telefono'))
+        lead_email = (lead.get('email') or '').strip().lower()
 
-    clientes_ordenados = sorted(
-        clientes,
-        key=lambda cliente: cliente.get('fecha_creacion', ''),
-        reverse=True
-    )
+        if cliente_telefono and lead_telefono and cliente_telefono == lead_telefono:
+            return True
 
-    for cliente in clientes_ordenados:
-        item = cliente.copy()
-        item['tipo_contacto'] = 'cliente'
-        item['href'] = f"/crm/cliente/{cliente.get('id')}"
-        item['prioridad'] = 'Media'
-        item['estado'] = cliente.get('tipo') or 'Cliente'
-        item['fecha_prioridad'] = cliente.get('fecha_creacion', '')
-        clave = crm_prioridad_contacto_key(item)
-        if clave and clave not in vistos:
-            vistos.add(clave)
-            contactos.append(item)
+        if cliente_email and lead_email and cliente_email == lead_email:
+            return True
 
-    contactos.sort(
-        key=lambda contacto: contacto.get('fecha_prioridad', '') or '',
-        reverse=True
-    )
-    return contactos[:limite]
+    return False
+
+
+def crm_clientes_manuales_prioridad(leads, clientes):
+
+    clientes_prioridad = []
+
+    for cliente in sorted(clientes, key=lambda item: item.get('fecha_creacion', ''), reverse=True):
+        fuente = cliente.get('fuente') or 'Manual'
+
+        if fuente != 'Manual':
+            continue
+
+        if crm_cliente_ya_existe_como_lead(cliente, leads):
+            continue
+
+        clientes_prioridad.append(cliente)
+
+    return clientes_prioridad
+
 
 def crm_dashboard_context():
 
@@ -3126,7 +3106,7 @@ def crm_dashboard_context():
     visitas_pendientes = crm_visitas_pendientes(agenda)
     tareas_por_prioridad = crm_tareas_por_prioridad_notificacion(tareas)
     actividades_ultimas, actividades_hoy, actividades_semana = crm_actividad_resumen()
-    prioridad_comercial = crm_prioridad_comercial(leads, clientes)
+    clientes_manuales_prioridad = crm_clientes_manuales_prioridad(leads, clientes)
 
     fuentes = {}
     for lead in leads:
@@ -3143,7 +3123,7 @@ def crm_dashboard_context():
 
     return {
         'leads': leads,
-        'prioridad_comercial': prioridad_comercial,
+        'clientes_manuales_prioridad': clientes_manuales_prioridad,
         'leads_nuevos': leads_nuevos,
         'leads_sin_contactar': crm_leads_sin_contactar(leads),
         'visitas_proximas': visitas_proximas,
