@@ -29,10 +29,10 @@
     <div>
         <div class="section-head"><div><h2>Prioridad comercial</h2><p>Contactos que conviene atender primero.</p></div><a class="btn secondary" href="/crm/leads">Ver leads</a></div>
         <div class="lead-grid">
-            {% for lead in leads[:6] %}
-            <a class="lead-card" href="/crm/lead/{{ lead.row_number }}"><div class="lead-main"><div><h3>{{ lead.nombre or "Sin nombre" }}</h3><p>{{ lead.propiedad or "Sin propiedad" }}</p></div><span class="pill {% if lead.prioridad == 'Alta' %}bad{% else %}warn{% endif %}">{{ lead.prioridad }}</span></div><div class="meta-line"><span class="pill teal">{{ lead.fuente or "Web" }}</span><span class="pill">{{ lead.estado or "Nuevo" }}</span></div></a>
+            {% for contacto in prioridad_comercial %}
+            <a class="lead-card" href="{{ contacto.href }}"><div class="lead-main"><div><h3>{{ contacto.nombre or "Sin nombre" }}</h3><p>{{ contacto.propiedad or "Sin propiedad" }}</p></div><span class="pill {% if contacto.prioridad == 'Alta' %}bad{% else %}warn{% endif %}">{{ contacto.prioridad }}</span></div><div class="meta-line"><span class="pill teal">{{ contacto.fuente or "Manual" }}</span><span class="pill">{{ contacto.estado or "Nuevo" }}</span>{% if contacto.tipo_contacto == 'cliente' %}<span class="pill good">Cliente</span>{% endif %}</div></a>
             {% else %}
-            <div class="panel empty"><div><strong>Sin leads pendientes</strong><p class="muted">Cuando entren contactos aparecerán acá.</p></div></div>
+            <div class="panel empty"><div><strong>Sin contactos pendientes</strong><p class="muted">Cuando entren leads o clientes aparecerán acá.</p></div></div>
             {% endfor %}
         </div>
     </div>
