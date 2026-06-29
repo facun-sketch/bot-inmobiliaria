@@ -2233,6 +2233,7 @@ CRM_CLIENTES_CSV = 'crm_clientes.csv'
 CRM_AGENDA_CSV = 'crm_agenda.csv'
 CRM_LEAD_NOTAS_CSV = 'crm_lead_notas.csv'
 CRM_ACTIVIDADES_CSV = 'crm_actividades.csv'
+CRM_NOTIFICACIONES_CSV = 'crm_notificaciones.csv'
 
 CRM_STORAGE_COLLECTIONS = {
     CRM_OPORTUNIDADES_CSV: 'crm_oportunidades',
@@ -2241,6 +2242,7 @@ CRM_STORAGE_COLLECTIONS = {
     CRM_AGENDA_CSV: 'crm_agenda',
     CRM_LEAD_NOTAS_CSV: 'crm_lead_notas',
     CRM_ACTIVIDADES_CSV: 'crm_actividades',
+    CRM_NOTIFICACIONES_CSV: 'crm_notificaciones',
 }
 
 CRM_OPORTUNIDAD_HEADERS = [
@@ -2328,6 +2330,20 @@ CRM_ACTIVIDAD_HEADERS = [
     'asunto',
     'observaciones',
     'updated_at'
+]
+
+CRM_NOTIFICACION_HEADERS = [
+    'id',
+    'tipo',
+    'titulo',
+    'detalle',
+    'fecha',
+    'nivel',
+    'entidad_tipo',
+    'entidad_id',
+    'leida',
+    'fecha_creacion',
+    'fecha_leida'
 ]
 
 CRM_ETAPAS_OPORTUNIDAD = [
@@ -2676,6 +2692,58 @@ def crm_agregar_csv(archivo, headers, row):
     })
     crm_escribir_csv(archivo, headers, rows)
 
+def crm_notificaciones_guardadas():
+
+    notificaciones = crm_leer_csv(CRM_NOTIFICACIONES_CSV, CRM_NOTIFICACION_HEADERS)
+    notificaciones.sort(key=lambda item: item.get('fecha_creacion') or item.get('fecha', ''), reverse=True)
+    return notificaciones
+
+def crm_registrar_notificacion_recordatorio(tarea, vencimiento=None):
+
+    tarea_id = tarea.get('id') or ''
+    if not tarea_id:
+        return False
+
+    notificacion_id = f'notif-{tarea_id}-recordatorio'
+    notificaciones = crm_leer_csv(CRM_NOTIFICACIONES_CSV, CRM_NOTIFICACION_HEADERS)
+
+    if any(notificacion.get('id') == notificacion_id for notificacion in notificaciones):
+        return False
+
+    fecha = vencimiento.strftime('%Y-%m-%d %H:%M') if vencimiento else f"{tarea.get('fecha_limite', '')} {tarea.get('hora_limite', '')}".strip()
+    notificaciones.append({
+        'id': notificacion_id,
+        'tipo': 'Tarea vencida',
+        'titulo': tarea.get('titulo') or 'Seguimiento pendiente',
+        'detalle': tarea.get('cliente') or tarea.get('propiedad') or 'Sin cliente',
+        'fecha': fecha,
+        'nivel': 'danger',
+        'entidad_tipo': 'tarea',
+        'entidad_id': tarea_id,
+        'leida': 'No',
+        'fecha_creacion': crm_now(),
+        'fecha_leida': ''
+    })
+    crm_escribir_csv(CRM_NOTIFICACIONES_CSV, CRM_NOTIFICACION_HEADERS, notificaciones)
+    return True
+
+def crm_marcar_notificacion_leida(notificacion_id):
+
+    notificaciones = crm_leer_csv(CRM_NOTIFICACIONES_CSV, CRM_NOTIFICACION_HEADERS)
+    actualizada = False
+
+    for notificacion in notificaciones:
+        if notificacion.get('id') == notificacion_id:
+            notificacion['leida'] = 'Si'
+            notificacion['fecha_leida'] = crm_now()
+            actualizada = True
+            break
+
+    if actualizada:
+        crm_escribir_csv(CRM_NOTIFICACIONES_CSV, CRM_NOTIFICACION_HEADERS, notificaciones)
+
+    return actualizada
+
 def crm_parse_fecha(valor):
 
     if not valor:
@@ -2836,6 +2904,7 @@ def crm_actualizar_recordatorios_tareas(tareas):
         if vencimiento <= ahora:
 
             print('Recordatorio detectado')
+            crm_registrar_notificacion_recordatorio(tarea, vencimiento)
             if tarea.get('recordatorio_enviado') != 'Si':
                 if enviar_email_recordatorio_tarea(tarea):
                     tarea['recordatorio_enviado'] = 'Si'
@@ -3292,7 +3361,11 @@ def crm_dashboard_context():
 def crm_notificaciones_context():
 
     context = crm_dashboard_context()
-    notificaciones = []
+    notificaciones = [
+        notificacion
+        for notificacion in crm_notificaciones_guardadas()
+        if notificacion.get('leida') != 'Si'
+    ]
 
     for lead in context['leads_nuevos'][:8]:
         notificaciones.append({
@@ -3340,6 +3413,12 @@ def crm_notificaciones_context():
         })
 
     return notificaciones
+
+@app.route('/crm/notificaciones/<notificacion_id>/leida', methods=['POST'])
+def crm_notificacion_leida(notificacion_id):
+
+    crm_marcar_notificacion_leida(notificacion_id)
+    return redirect(url_for('crm_notificaciones'))
 
 @app.route('/crm')
 def crm_home():
@@ -3822,286 +3901,6 @@ def crm_mask_secret(valor):
     return f'{valor[:2]}***{valor[-2:]}'
 
 
-def crm_smtp_config_actual():
-
-    return {
-        'SMTP_HOST': os.getenv('SMTP_HOST', '').strip(),
-        'SMTP_PORT': os.getenv('SMTP_PORT', '587').strip() or '587',
-        'SMTP_USER': os.getenv('SMTP_USER', '').strip(),
-        'EMAIL_FROM': (os.getenv('EMAIL_FROM') or os.getenv('SMTP_USER', '')).strip(),
-        'SMTP_PASSWORD_CONFIGURADO': 'Si' if os.getenv('SMTP_PASSWORD', '').strip() else 'No'
-    }
-
-
-def crm_enviar_email_prueba():
-
-    auth = crm_auth_leer()
-    email_to = (auth.get('email_recordatorios') or os.getenv('EMAIL_RECORDATORIOS') or '').strip()
-    config = crm_smtp_config_actual()
-    smtp_password = os.getenv('SMTP_PASSWORD', '').strip()
-
-    if not email_to:
-        return False, 'Error SMTP: no hay email de recordatorios configurado en Mi Cuenta.'
-
-    if not config['SMTP_HOST'] or not config['SMTP_USER'] or not smtp_password:
-        return False, 'Error SMTP: faltan SMTP_HOST, SMTP_USER o SMTP_PASSWORD.'
-
-    try:
-        smtp_port = int(config['SMTP_PORT'])
-    except (TypeError, ValueError):
-        return False, f"Error SMTP: SMTP_PORT inválido ({config['SMTP_PORT']})."
-
-    import smtplib
-    from email.message import EmailMessage
-
-    msg = EmailMessage()
-    msg['Subject'] = 'Prueba CRM - Configuración SMTP'
-    msg['From'] = config['EMAIL_FROM']
-    msg['To'] = email_to
-    msg.set_content('Este es un correo de prueba del CRM para verificar la configuración SMTP.')
-
-    try:
-        print('Test SMTP: conectando')
-        with smtplib.SMTP(config['SMTP_HOST'], smtp_port, timeout=20) as server:
-            print('Test SMTP: conexión OK')
-            server.starttls()
-            print('Test SMTP: STARTTLS OK')
-            server.login(config['SMTP_USER'], smtp_password)
-            print('Test SMTP: autenticación OK')
-            server.send_message(msg)
-            print('Test SMTP: email enviado correctamente')
-        return True, 'Email enviado correctamente'
-    except Exception as e:
-        print(f'Error SMTP test-email: {e}')
-        return False, f'Error SMTP: {e}'
-
-
-
-
-def crm_smtp_valor_debug(nombre):
-
-    valor = os.getenv(nombre, '')
-    return {
-        'nombre': nombre,
-        'valor': valor,
-        'repr': repr(valor),
-        'largo': len(valor),
-        'tiene_espacios_extremos': valor != valor.strip(),
-        'tiene_salto_linea': ('\n' in valor) or ('\r' in valor),
-        'tiene_tab': '\t' in valor
-    }
-
-
-def crm_socket_test(host, port):
-
-    import socket
-    import time
-    resultado = {
-        'host': host,
-        'port': port,
-        'dns_ok': False,
-        'addresses': [],
-        'tcp_ok': False,
-        'elapsed_ms': None,
-        'error': ''
-    }
-
-    started = time.perf_counter()
-
-    try:
-        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-        resultado['dns_ok'] = True
-        resultado['addresses'] = sorted({info[4][0] for info in infos})
-    except Exception as e:
-        resultado['elapsed_ms'] = round((time.perf_counter() - started) * 1000, 2)
-        resultado['error'] = repr(e)
-        return resultado
-
-    try:
-        with socket.create_connection((host, int(port)), timeout=10):
-            resultado['tcp_ok'] = True
-    except Exception as e:
-        resultado['error'] = repr(e)
-
-    resultado['elapsed_ms'] = round((time.perf_counter() - started) * 1000, 2)
-    return resultado
-
-
-
-
-@app.route('/crm/test-resend', methods=['GET', 'POST'])
-def crm_test_resend():
-
-    auth = crm_auth_leer()
-    email_to = (auth.get('email_recordatorios') or os.getenv('EMAIL_RECORDATORIOS') or '').strip()
-    resultado = None
-    ok = False
-
-    if request.method == 'POST':
-        ok, resultado = crm_enviar_email_resend(
-            email_to,
-            'Prueba CRM - Resend',
-            'Este es un correo de prueba del CRM enviado por Resend.'
-        )
-
-    resend_api_key = os.getenv('RESEND_API_KEY', '').strip()
-    resend_from = os.getenv('RESEND_FROM_EMAIL', '').strip() or os.getenv('EMAIL_FROM', '').strip() or 'onboarding@resend.dev'
-    html = '''
-    <!doctype html>
-    <html lang="es">
-    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test Resend CRM</title></head>
-    <body style="font-family:Arial,sans-serif;background:#f6f7f7;color:#222;padding:24px">
-        <main style="max-width:820px;margin:auto;background:white;border:1px solid #e1e5e7;border-radius:8px;padding:20px">
-            <h1>Test Resend CRM</h1>
-            <p>Ruta temporal protegida por login CRM.</p>
-            <ul>
-                <li><strong>RESEND_API_KEY configurada:</strong> {{ resend_configurado }}</li>
-                <li><strong>Remitente:</strong> {{ remitente }}</li>
-                <li><strong>Email destino:</strong> {{ destino }}</li>
-            </ul>
-            {% if resultado %}
-                <p style="padding:12px;border-radius:6px;background:{{ '#e7f5ec' if ok else '#fde7e9' }}"><strong>{{ 'Email enviado correctamente' if ok else 'Error Resend' }}</strong></p>
-                <p><strong>ID del email:</strong> {{ resultado.get('id', '-') }}</p>
-                <h2>Respuesta completa de Resend</h2>
-                <pre style="white-space:pre-wrap;background:#f6f7f7;padding:12px;border-radius:6px">{{ respuesta }}</pre>
-            {% endif %}
-            <form method="post"><button type="submit" style="background:#08747f;color:white;border:0;border-radius:6px;padding:10px 14px;cursor:pointer">Enviar correo de prueba</button></form>
-            <p><a href="/crm/cuenta">Volver a Mi Cuenta</a></p>
-        </main>
-    </body>
-    </html>
-    '''
-    return render_template_string(
-        html,
-        resend_configurado='Si' if resend_api_key else 'No',
-        remitente=crm_mask_secret(resend_from),
-        destino=crm_mask_secret(email_to),
-        resultado=resultado,
-        respuesta=json.dumps(resultado, ensure_ascii=False, indent=2) if resultado else '',
-        ok=ok
-    )
-
-@app.route('/crm/test-smtp-network')
-def crm_test_smtp_network():
-
-    config = crm_smtp_config_actual()
-    variables = [
-        crm_smtp_valor_debug('SMTP_HOST'),
-        crm_smtp_valor_debug('SMTP_PORT'),
-        crm_smtp_valor_debug('SMTP_USER'),
-        crm_smtp_valor_debug('EMAIL_FROM')
-    ]
-
-    pruebas = []
-
-    if config['SMTP_HOST']:
-        pruebas.append(crm_socket_test(config['SMTP_HOST'], config['SMTP_PORT']))
-
-    pruebas.append(crm_socket_test('smtp.gmail.com', 587))
-    pruebas.append(crm_socket_test('smtp.gmail.com', 465))
-
-    html = '''
-    <!doctype html>
-    <html lang="es">
-    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagnóstico SMTP</title></head>
-    <body style="font-family:Arial,sans-serif;background:#f6f7f7;color:#222;padding:24px">
-        <main style="max-width:980px;margin:auto;background:white;border:1px solid #e1e5e7;border-radius:8px;padding:20px">
-            <h1>Diagnóstico SMTP Railway</h1>
-            <p>Ruta temporal protegida por login CRM. No muestra SMTP_PASSWORD.</p>
-
-            <h2>Variables leídas</h2>
-            <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;width:100%">
-                <thead><tr><th>Variable</th><th>Valor exacto</th><th>repr()</th><th>Largo</th><th>Espacios extremos</th><th>Saltos</th><th>Tabs</th></tr></thead>
-                <tbody>
-                {% for item in variables %}
-                    <tr>
-                        <td>{{ item.nombre }}</td>
-                        <td><code>{{ item.valor }}</code></td>
-                        <td><code>{{ item.repr }}</code></td>
-                        <td>{{ item.largo }}</td>
-                        <td>{{ item.tiene_espacios_extremos }}</td>
-                        <td>{{ item.tiene_salto_linea }}</td>
-                        <td>{{ item.tiene_tab }}</td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-
-            <h2>Pruebas DNS/TCP</h2>
-            {% for prueba in pruebas %}
-                <section style="margin:14px 0;padding:12px;border:1px solid #e1e5e7;border-radius:7px;background:#fafafa">
-                    <h3>{{ prueba.host }}:{{ prueba.port }}</h3>
-                    <p><strong>DNS OK:</strong> {{ prueba.dns_ok }}</p>
-                    <p><strong>Direcciones:</strong> {{ prueba.addresses|join(', ') if prueba.addresses else '-' }}</p>
-                    <p><strong>TCP OK:</strong> {{ prueba.tcp_ok }}</p>
-                    <p><strong>Tiempo:</strong> {{ prueba.elapsed_ms }} ms</p>
-                    <p><strong>Error:</strong> <code>{{ prueba.error or '-' }}</code></p>
-                </section>
-            {% endfor %}
-
-            <h2>Valores recomendados Gmail</h2>
-            <pre>SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=tu_correo@gmail.com
-SMTP_PASSWORD=contraseña_de_aplicación_de_Google
-EMAIL_FROM=tu_correo@gmail.com</pre>
-            <p>Alternativa SSL: SMTP_PORT=465 si el código usa SMTP_SSL. Este proyecto actualmente usa STARTTLS, por eso corresponde 587.</p>
-            <p><a href="/crm/test-email">Volver a test-email</a></p>
-        </main>
-    </body>
-    </html>
-    '''
-
-    return render_template_string(html, variables=variables, pruebas=pruebas)
-
-@app.route('/crm/test-email', methods=['GET', 'POST'])
-def crm_test_email():
-
-    config = crm_smtp_config_actual()
-    auth = crm_auth_leer()
-    resultado = ''
-    ok = False
-
-    if request.method == 'POST':
-        ok, resultado = crm_enviar_email_prueba()
-
-    destino = auth.get('email_recordatorios') or os.getenv('EMAIL_RECORDATORIOS', '')
-    html = '''
-    <!doctype html>
-    <html lang="es">
-    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test email CRM</title></head>
-    <body style="font-family:Arial,sans-serif;background:#f6f7f7;color:#222;padding:24px">
-        <main style="max-width:760px;margin:auto;background:white;border:1px solid #e1e5e7;border-radius:8px;padding:20px">
-            <h1>Test email CRM</h1>
-            <p>Ruta temporal protegida por login CRM.</p>
-            <ul>
-                <li><strong>SMTP_HOST:</strong> {{ smtp_host }}</li>
-                <li><strong>SMTP_PORT:</strong> {{ smtp_port }}</li>
-                <li><strong>SMTP_USER:</strong> {{ smtp_user }}</li>
-                <li><strong>EMAIL_FROM:</strong> {{ email_from }}</li>
-                <li><strong>SMTP_PASSWORD configurado:</strong> {{ smtp_password_configurado }}</li>
-                <li><strong>Email destino:</strong> {{ destino }}</li>
-            </ul>
-            {% if resultado %}
-                <p style="padding:12px;border-radius:6px;background:{{ '#e7f5ec' if ok else '#fde7e9' }}"><strong>{{ resultado }}</strong></p>
-            {% endif %}
-            <form method="post"><button type="submit" style="background:#08747f;color:white;border:0;border-radius:6px;padding:10px 14px;cursor:pointer">Enviar correo de prueba</button></form>
-            <p><a href="/crm/cuenta">Volver a Mi Cuenta</a></p>
-        </main>
-    </body>
-    </html>
-    '''
-    return render_template_string(
-        html,
-        smtp_host=crm_mask_secret(config['SMTP_HOST']),
-        smtp_port=config['SMTP_PORT'] or 'NO_CONFIGURADO',
-        smtp_user=crm_mask_secret(config['SMTP_USER']),
-        email_from=crm_mask_secret(config['EMAIL_FROM']),
-        smtp_password_configurado=config['SMTP_PASSWORD_CONFIGURADO'],
-        destino=crm_mask_secret(destino),
-        resultado=resultado,
-        ok=ok
-    )
 
 @app.route('/crm/tareas', methods=['GET', 'POST'])
 def crm_tareas():
@@ -4628,11 +4427,17 @@ def crm_agenda():
 def crm_notificaciones():
 
     context = crm_dashboard_context()
+    notificaciones_registradas = crm_notificaciones_guardadas()
     return render_template(
         'crm/notificaciones.html',
         active='notificaciones',
         title='Notificaciones',
         notificaciones=crm_notificaciones_context(),
+        notificaciones_leidas=[
+            notificacion
+            for notificacion in notificaciones_registradas
+            if notificacion.get('leida') == 'Si'
+        ],
         recordatorios_tareas=context['recordatorios_tareas'],
         tareas_vence_ahora=context['tareas_vence_ahora'],
         tareas_proxima_hora=context['tareas_proxima_hora'],
