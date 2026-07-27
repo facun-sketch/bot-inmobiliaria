@@ -4508,7 +4508,7 @@ def whatsapp_bot():
     PROPIEDADES DISPONIBLES:
 
     1) Dúplex en Villa Aurelia
-    - Precio: Gs. 1.397.000.000
+    - Precio: USD 205.000
     - 3 dormitorios
     - 2 baños
     - Patio
@@ -4516,7 +4516,7 @@ def whatsapp_bot():
     - Crédito bancario
 
     2) Edificio Bernardino
-    - Precio: Gs. 1.680.000.000
+    - Precio: USD 250.000
     - 2 dormitorios
     - Piscina
     - Gimnasio
